@@ -73,7 +73,7 @@ jobs:
           cd "$HOME"
           curl -L "https://www.nvaccess.org/files/nvda/releases/stable/nvda_${NVDA_CONTROLLER_VERSION}_controllerClient.zip" > "controller.zip"
           unzip controller.zip -d controller
-          [ -d prefix/bin ] || mkdir prefix/bin
+          [ -d prefix/bin ] || mkdir -p prefix/bin
           mv controller/$CARCH/nvdaControllerClient.dll prefix/bin
 
       - name: 'Download SDL 1.2 sources'
