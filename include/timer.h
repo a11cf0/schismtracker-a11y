@@ -20,27 +20,21 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#ifndef SCHISM_EVENT_H_
-#define SCHISM_EVENT_H_
 
-#include <SDL.h>
+#ifndef SCHISM_TIMER_H_
+#define SCHISM_TIMER_H_
 
-#define SCHISM_EVENT_UPDATE_IPMIDI      (SDL_USEREVENT+0)
-#define SCHISM_EVENT_MIDI               (SDL_USEREVENT+1)
-#define SCHISM_EVENT_PLAYBACK           (SDL_USEREVENT+2)
-#define SCHISM_EVENT_NATIVE             (SDL_USEREVENT+3)
-#define SCHISM_EVENT_PASTE              (SDL_USEREVENT+4)
+#include "headers.h"
 
-#define SCHISM_EVENT_MIDI_NOTE          1
-#define SCHISM_EVENT_MIDI_CONTROLLER    2
-#define SCHISM_EVENT_MIDI_PROGRAM       3
-#define SCHISM_EVENT_MIDI_AFTERTOUCH    4
-#define SCHISM_EVENT_MIDI_PITCHBEND     5
-#define SCHISM_EVENT_MIDI_TICK          6
-#define SCHISM_EVENT_MIDI_SYSEX         7
-#define SCHISM_EVENT_MIDI_SYSTEM        8
+typedef uint64_t schism_ticks_t;
 
-#define SCHISM_EVENT_NATIVE_OPEN        1
-#define SCHISM_EVENT_NATIVE_SCRIPT      16
+schism_ticks_t timer_ticks(void);
+int timer_ticks_passed(schism_ticks_t a, schism_ticks_t b);
+void timer_delay(uint32_t ms);
+void timer_usleep(uint64_t usec);
+void timer_msleep(uint64_t msec);
 
-#endif /* SCHISM_EVENT_H_ */
+int timer_init(void);
+void timer_quit(void);
+
+#endif /* SCHISM_TIMER_H_ */

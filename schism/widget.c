@@ -29,6 +29,8 @@
 #include "vgamem.h"
 #include "accessibility.h"
 
+#include <math.h>
+
 /* --------------------------------------------------------------------- */
 /* create_* functions (the constructors, if you will) */
 

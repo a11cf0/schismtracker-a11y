@@ -22,41 +22,41 @@
  */
 
 #include "headers.h"
-#include "sdlmain.h"
+#include "threads.h"
 
-#ifdef SCHISM_WIN32
-struct tm *localtime_r(const time_t *timep, struct tm *result)
+static schism_mutex_t *localtime_r_mutex = NULL;
+static int initialized = 0;
+
+void localtime_r_quit(void)
 {
-    return localtime_s(result, timep) ? NULL : result;
+	mt_mutex_delete(localtime_r_mutex);
 }
-#else
-static SDL_mutex *localtime_r_mutex = NULL;
 
-static void localtime_r_atexit(void)
+int localtime_r_init(void)
 {
-	SDL_DestroyMutex(localtime_r_mutex);
+	localtime_r_mutex = mt_mutex_create();
+	if (!localtime_r_mutex)
+		return 0;
+
+	initialized = 1;
+
+	return 1;
 }
 
 struct tm *localtime_r(const time_t *timep, struct tm *result)
 {
 	static struct tm *our_tm;
-	static int initialized = 0;
 
-	if (!initialized) {
-		localtime_r_mutex = SDL_CreateMutex();
-		if (!localtime_r_mutex)
-			return NULL;
+	// huh?
+	if (!initialized)
+		return NULL;
 
-		initialized = 1;
-	}
-
-	SDL_LockMutex(localtime_r_mutex);
+	mt_mutex_lock(localtime_r_mutex);
 
 	our_tm = localtime(timep);
-	memcpy(result, our_tm, sizeof(struct tm));
+	*result = *our_tm;
 
-	SDL_UnlockMutex(localtime_r_mutex);
+	mt_mutex_unlock(localtime_r_mutex);
 
 	return result;
 }
-#endif

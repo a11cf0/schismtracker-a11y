@@ -30,6 +30,7 @@
 #include "charset.h"
 #include "accessibility.h"
 
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <SRAL.h>
