@@ -190,7 +190,7 @@ jobs:
           autoreconf -I"$HOME/prefix/share/aclocal" -i
           mkdir build
           cd build
-          ../configure --host="$TARGET-w64-$SYS" --prefix="$HOME/prefix" --with-flac --with-sdl2
+          ../configure --host="$TARGET-w64-$SYS" --prefix="$HOME/prefix" --with-flac --with-sdl2 CPPFLAGS="-I$HOME/prefix/include" LDFLAGS="$HOME/prefix/lib"
           make
           "$TARGET-w64-$SYS-strip" -g schismtracker.exe
           cp schismtracker.exe ../..
