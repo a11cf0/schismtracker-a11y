@@ -30,8 +30,9 @@
 #include "song.h"
 #include "page.h"
 #include "accessibility.h"
+#include "keyboard.h"
 
-#include "sdlmain.h"
+#include <ctype.h>
 
 /* --------------------------------------------------------------------- */
 
@@ -205,7 +206,7 @@ int dialog_handle_key(struct key_event * k)
 	/* this SHOULD be handling on k->state press but the widget key handler is stealing that key. */
 	if (k->state == KEY_RELEASE && NO_MODIFIER(k->mod)) {
 		switch (k->sym) {
-		case SDLK_y:
+		case SCHISM_KEYSYM_y:
 			switch (status.dialog_type) {
 			case DIALOG_YES_NO:
 			case DIALOG_OK_CANCEL:
@@ -215,7 +216,7 @@ int dialog_handle_key(struct key_event * k)
 				break;
 			}
 			break;
-		case SDLK_n:
+		case SCHISM_KEYSYM_n:
 			switch (status.dialog_type) {
 			case DIALOG_YES_NO:
 				/* in Impulse Tracker, 'n' means cancel, not "no"!
@@ -231,7 +232,7 @@ int dialog_handle_key(struct key_event * k)
 				break;
 			}
 			break;
-		case SDLK_c:
+		case SCHISM_KEYSYM_c:
 			switch (status.dialog_type) {
 			case DIALOG_YES_NO:
 			case DIALOG_OK_CANCEL:
@@ -239,10 +240,10 @@ int dialog_handle_key(struct key_event * k)
 			default:
 				return 0;
 			} /* and fall through */
-		case SDLK_ESCAPE:
+		case SCHISM_KEYSYM_ESCAPE:
 			dialog_cancel(d->data);
 			return 1;
-		case SDLK_o:
+		case SCHISM_KEYSYM_o:
 			switch (status.dialog_type) {
 			case DIALOG_YES_NO:
 			case DIALOG_OK_CANCEL:
@@ -250,7 +251,7 @@ int dialog_handle_key(struct key_event * k)
 			default:
 				return 0;
 			} /* and fall through */
-		case SDLK_RETURN:
+		case SCHISM_KEYSYM_RETURN:
 			dialog_yes(d->data);
 			return 1;
 		default:

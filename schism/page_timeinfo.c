@@ -27,12 +27,13 @@
 #include "page.h"
 #include "widget.h"
 #include "vgamem.h"
+#include "keyboard.h"
 #include "song.h"
 #include "accessibility.h"
 
-#include "sdlmain.h"
-
 #include <stdarg.h>
+#include <stddef.h>
+#include <inttypes.h>
 #include <errno.h>
 
 /* --------------------------------------------------------------------- */
@@ -58,11 +59,11 @@ static void timeinfo_draw_const(void)
 static int timeinfo_handle_key(struct key_event * k)
 {
 	switch (k->sym) {
-	case SDLK_BACKQUOTE:
+	case SCHISM_KEYSYM_BACKQUOTE:
 		if (k->state != KEY_RELEASE)
 			return 0;
 
-		if ((k->mod & KMOD_RALT) && (k->mod & KMOD_RSHIFT)) {
+		if ((k->mod & SCHISM_KEYMOD_RALT) && (k->mod & SCHISM_KEYMOD_RSHIFT)) {
 			display_session = !display_session;
 			a11y_outputf("Session info %s", 0, display_session ? "on" : "off");
 			a11y_text_reported = 0;
@@ -70,7 +71,7 @@ static int timeinfo_handle_key(struct key_event * k)
 			return 1;
 		}
 		return 0;
-	case SDLK_s:
+	case SCHISM_KEYSYM_s:
 		if (k->state != KEY_RELEASE)
 			return 0;
 
@@ -88,32 +89,32 @@ static int timeinfo_handle_key(struct key_event * k)
 
 	if (display_session) {
 		switch (k->sym) {
-		case SDLK_UP:
+		case SCHISM_KEYSYM_UP:
 			if (k->state == KEY_RELEASE)
 				return 1;
 			top_line--;
 			break;
-		case SDLK_PAGEUP:
+		case SCHISM_KEYSYM_PAGEUP:
 			if (k->state == KEY_RELEASE)
 				return 1;
 			top_line -= 15;
 			break;
-		case SDLK_DOWN:
+		case SCHISM_KEYSYM_DOWN:
 			if (k->state == KEY_RELEASE)
 				return 1;
 			top_line++;
 			break;
-		case SDLK_PAGEDOWN:
+		case SCHISM_KEYSYM_PAGEDOWN:
 			if (k->state == KEY_RELEASE)
 				return 1;
 			top_line += 15;
 			break;
-		case SDLK_HOME:
+		case SCHISM_KEYSYM_HOME:
 			if (k->state == KEY_RELEASE)
 				return 1;
 			top_line = 0;
 			break;
-		case SDLK_END:
+		case SCHISM_KEYSYM_END:
 			if (k->state == KEY_RELEASE)
 				return 1;
 			top_line = current_song->histlen;

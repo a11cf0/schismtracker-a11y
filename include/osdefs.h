@@ -28,7 +28,7 @@ and possibly other files as well. Only one osdefs.c should be in use at a time. 
 #define SCHISM_OSDEFS_H_
 
 #include "headers.h"
-#include "event.h"
+#include "events.h"
 
 /* need stat; TODO autoconf test */
 #include <sys/stat.h> /* roundabout way to get time_t */
@@ -37,10 +37,7 @@ and possibly other files as well. Only one osdefs.c should be in use at a time. 
 os_sysinit: any platform-dependent setup that needs to occur directly upon startup.
 This code is processed right as soon as main() starts.
 
-os_sdlinit: any platform-dependent setup that needs to occur after SDL is up and running.
-Currently only used on the Wii in order to get the Wiimote working.
-
-os_sdlevent: preprocessing for SDL events.
+os_event: preprocessing for events.
 This is used to hack in system-dependent input methods (e.g. F16 and other scancodes on OS X; Wiimote buttons;
 etc.) If defined, this function will be called after capturing an SDL event.
 A return value of 0 indicates that the event should NOT be processed by the main event handler.
@@ -52,8 +49,7 @@ A return value of 0 indicates that the event should NOT be processed by the main
 # define os_sysinit wiiu_sysinit
 # define os_sysexit wiiu_sysexit
 #elif defined(SCHISM_WIN32)
-# define os_sdlevent win32_sdlevent
-# define os_sdlinit win32_sdlinit
+# define os_event win32_event
 # define os_sysinit win32_sysinit
 # define os_sysexit win32_sysexit
 # define os_get_modkey win32_get_modkey
@@ -61,11 +57,14 @@ A return value of 0 indicates that the event should NOT be processed by the main
 # define os_stat win32_stat
 # define os_open win32_open
 # define os_mkdir win32_mkdir
+# define os_get_key_repeat win32_get_key_repeat
+# define os_show_message_box win32_show_message_box
 #elif defined(SCHISM_MACOSX)
-# define os_sdlevent macosx_sdlevent
+# define os_event macosx_event
 # define os_sysexit macosx_sysexit
 # define os_sysinit macosx_sysinit
 # define os_get_modkey macosx_get_modkey
+# define os_get_key_repeat macosx_get_key_repeat
 #endif
 
 #if defined(SCHISM_WIN32)
@@ -74,11 +73,8 @@ A return value of 0 indicates that the event should NOT be processed by the main
 # define os_run_hook posix_run_hook
 #endif
 
-#ifndef os_sdlevent
-# define os_sdlevent(ev) 1
-#endif
-#ifndef os_sdlinit
-# define os_sdlinit()
+#ifndef os_event
+# define os_event(ev) 1
 #endif
 #ifndef os_sysinit
 # define os_sysinit(pargc,argv)
@@ -104,6 +100,12 @@ A return value of 0 indicates that the event should NOT be processed by the main
 #ifndef os_run_hook
 # define os_run_hook(a,b,c) 0
 #endif
+#ifndef os_get_key_repeat
+# define os_get_key_repeat(pdelay, prate) (0)
+#endif
+#ifndef os_show_message_box
+# define os_show_message_box(title, text) ((void)printf("%s: %s\n", title, text))
+#endif
 
 // Implementations for the above, and more.
 
@@ -115,27 +117,28 @@ void wiiu_sysexit(void);
 void wii_sysinit(int *pargc, char ***pargv); // set up filesystem
 void wii_sysexit(void); // close filesystem
 
-int win32_sdlevent(SDL_Event* event);
+int win32_event(schism_event_t *event);
 void win32_sysinit(int *pargc, char ***pargv);
 void win32_sysexit(void);
 void win32_sdlinit(void);
-void win32_get_modkey(int *m);
+void win32_get_modkey(schism_keymod_t *m);
 void win32_filecreated_callback(const char *filename);
-void win32_toggle_menu(SDL_Window* window);
+void win32_toggle_menu(void* window, int on); // window should be a pointer to the window HWND
 int win32_open(const char* path, int flags);
-int win32_wstat(const wchar_t* path, struct stat* st);
 int win32_stat(const char* path, struct stat* st);
-int win32_mktemp(char* template, size_t size);
 int win32_mkdir(const char* path, mode_t mode);
 FILE* win32_fopen(const char* path, const char* flags);
 #define win32_wmkdir(path, mode) _wmkdir(path)
 int win32_run_hook(const char *dir, const char *name, const char *maybe_arg);
+int win32_get_key_repeat(int *pdelay, int *prate);
+void win32_show_message_box(const char *title, const char *text);
 
 int posix_run_hook(const char *dir, const char *name, const char *maybe_arg);
 
-int macosx_sdlevent(SDL_Event* event);
+int macosx_event(schism_event_t *event);
 void macosx_sysexit(void);
 void macosx_sysinit(int *pargc, char ***pargv); /* set up ibook helper */
-void macosx_get_modkey(int *m);
+void macosx_get_modkey(schism_keymod_t *m);
+int macosx_get_key_repeat(int *pdelay, int *prate);
 
 #endif /* SCHISM_OSDEFS_H_ */

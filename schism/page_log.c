@@ -32,8 +32,7 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "charset.h"
-
-#include "sdlmain.h"
+#include "keyboard.h"
 
 #include <stdarg.h>
 #include <errno.h>
@@ -107,43 +106,43 @@ static int log_handle_key(struct key_event * k)
 	char buf[75];
 	char ch;
 	switch (k->sym) {
-	case SDLK_UP:
+	case SCHISM_KEYSYM_UP:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		top_line--;
 		new_cur_line--;
 		break;
-	case SDLK_PAGEUP:
+	case SCHISM_KEYSYM_PAGEUP:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		top_line -= 15;
 		new_cur_line -= 15;
 		break;
-	case SDLK_DOWN:
+	case SCHISM_KEYSYM_DOWN:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		top_line++;
 		new_cur_line++;
 		break;
-	case SDLK_PAGEDOWN:
+	case SCHISM_KEYSYM_PAGEDOWN:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		top_line += 15;
 		new_cur_line += 15;
 		break;
-	case SDLK_HOME:
+	case SCHISM_KEYSYM_HOME:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		top_line = 0;
 		new_cur_line = 0;
 		break;
-	case SDLK_END:
+	case SCHISM_KEYSYM_END:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		top_line = last_line;
 		new_cur_line = last_line;
 		break;
-	case SDLK_LEFT:
+	case SCHISM_KEYSYM_LEFT:
 		if (k->state == KEY_RELEASE || !lines[current_line].text)
 			return 1;
 		current_char--;
@@ -151,7 +150,7 @@ static int log_handle_key(struct key_event * k)
 		ch = log_a11y_get_char_at(current_char);
 		if (ch) a11y_output_char(ch, 0);
 		return 1;
-	case SDLK_RIGHT:
+	case SCHISM_KEYSYM_RIGHT:
 		if (k->state == KEY_RELEASE || !lines[current_line].text)
 			return 1;
 		current_char++;

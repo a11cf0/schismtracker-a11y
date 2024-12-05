@@ -21,14 +21,38 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef SCHISM_CONTROLLER_H_
-#define SCHISM_CONTROLLER_H_
+#ifndef SCHISM_BACKEND_EVENTS_H_
+#define SCHISM_BACKEND_EVENTS_H_
 
-#include "headers.h"
-#include "sdlmain.h"
+#include "../events.h"
+#include "../keyboard.h"
 
-int controller_init(void);
-int controller_quit(void);
-int controller_sdlevent(SDL_Event *event);
+// flags
+enum {
+	// Enable this flag if the backend sends its own key repeats
+	// If it doesn't we fall back to our internal representation
+	// and getting key repeat rates from the OS.
+	SCHISM_EVENTS_BACKEND_HAS_KEY_REPEAT = (1 << 0),
+};
 
-#endif /* SCHISM_CONTROLLER_H_ */
+typedef struct {
+	// returns 1 if succeeded, 0 if failed
+	int (*init)(void);
+	void (*quit)(void);
+
+	// flags defined above
+	uint32_t flags;
+
+	void (*pump_events)(void);
+	schism_keymod_t (*keymod_state)(void);
+} schism_events_backend_t;
+
+#ifdef SCHISM_SDL12
+extern const schism_events_backend_t schism_events_backend_sdl12;
+#endif
+
+#ifdef SCHISM_SDL2
+extern const schism_events_backend_t schism_events_backend_sdl2;
+#endif
+
+#endif /* SCHISM_BACKEND_EVENTS_H_ */

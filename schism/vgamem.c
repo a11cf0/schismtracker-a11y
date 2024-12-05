@@ -29,6 +29,7 @@
 #include "song.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <math.h>
 
 #define SAMPLE_DATA_COLOR 13 /* Sample data */
@@ -877,6 +878,7 @@ input channels = number of channels in data
 
 DRAW_SAMPLE_DATA_VARIANT(8)
 DRAW_SAMPLE_DATA_VARIANT(16)
+DRAW_SAMPLE_DATA_VARIANT(32)
 
 #undef DRAW_SAMPLE_DATA_VARIANT
 
@@ -1026,7 +1028,15 @@ void draw_sample_data(struct vgamem_overlay *r, song_sample_t *sample)
 	vgamem_ovl_apply(r);
 }
 
-void draw_sample_data_rect_16(struct vgamem_overlay *r, signed short *data,
+void draw_sample_data_rect_32(struct vgamem_overlay *r, int32_t *data,
+	int length, unsigned int inputchans, unsigned int outputchans)
+{
+	vgamem_ovl_clear(r, 0);
+	_draw_sample_data_32(r, data, length, inputchans, outputchans);
+	vgamem_ovl_apply(r);
+}
+
+void draw_sample_data_rect_16(struct vgamem_overlay *r, int16_t *data,
 	int length, unsigned int inputchans, unsigned int outputchans)
 {
 	vgamem_ovl_clear(r, 0);
@@ -1034,7 +1044,7 @@ void draw_sample_data_rect_16(struct vgamem_overlay *r, signed short *data,
 	vgamem_ovl_apply(r);
 }
 
-void draw_sample_data_rect_8(struct vgamem_overlay *r, signed char *data,
+void draw_sample_data_rect_8(struct vgamem_overlay *r, int8_t *data,
 	int length, unsigned int inputchans, unsigned int outputchans)
 {
 	vgamem_ovl_clear(r, 0);

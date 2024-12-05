@@ -32,8 +32,7 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "charset.h"
-
-#include "sdlmain.h"
+#include "keyboard.h"
 
 /* --------------------------------------------------------------------- */
 
@@ -214,48 +213,48 @@ static int help_handle_key(struct key_event * k)
 		return 0;
 	}
 	switch (k->sym) {
-	case SDLK_ESCAPE:
+	case SCHISM_KEYSYM_ESCAPE:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		set_page(status.previous_page);
 		return 1;
-	case SDLK_UP:
+	case SCHISM_KEYSYM_UP:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		new_line--;
 		new_cur_line--;
 		break;
-	case SDLK_DOWN:
+	case SCHISM_KEYSYM_DOWN:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		new_line++;
 		new_cur_line++;
 		break;
-	case SDLK_PAGEUP:
+	case SCHISM_KEYSYM_PAGEUP:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		new_line -= 32;
 		new_cur_line -= 32;
 		break;
-	case SDLK_PAGEDOWN:
+	case SCHISM_KEYSYM_PAGEDOWN:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		new_line += 32;
 		new_cur_line += 32;
 		break;
-	case SDLK_HOME:
+	case SCHISM_KEYSYM_HOME:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		new_line = 0;
 		new_cur_line = 0;
 		break;
-	case SDLK_END:
+	case SCHISM_KEYSYM_END:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		new_line = num_lines - 32;
 		new_cur_line = num_lines - 1;
 		break;
-	case SDLK_LEFT:
+	case SCHISM_KEYSYM_LEFT:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		current_char--;
@@ -263,7 +262,7 @@ static int help_handle_key(struct key_event * k)
 		ch = help_a11y_get_char_at(current_char);
 		if (ch) a11y_output_char(ch, 0);
 		return 1;
-	case SDLK_RIGHT:
+	case SCHISM_KEYSYM_RIGHT:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		current_char++;
