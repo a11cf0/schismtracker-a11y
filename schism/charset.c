@@ -118,9 +118,9 @@ int char_digraph(int k1, int k2)
 /* -----------------------------------------------------------------------------
  * decoders */
 
-/* convenience macros for decoding functions */
+/* Make sure we never overflow the size. */
 #define DECODER_ASSERT_OVERFLOW(decoder, amount) \
-	if ((decoder)->offset + (amount) >= (decoder)->size) { \
+	if ((decoder)->offset + (amount) > (decoder)->size) { \
 		(decoder)->state = DECODER_STATE_OVERFLOWED; \
 		return; \
 	}
@@ -719,7 +719,7 @@ charset_error_t charset_iconv(const void* in, void* out, charset_t inset, charse
 		return CHARSET_ERROR_INPUTISOUTPUT;
 
 	switch (inset) {
-#ifdef WIN32
+#ifdef SCHISM_WIN32
 	case CHARSET_ANSI: {
 		// convert ANSI to Unicode so we can process it
 		int needed = MultiByteToWideChar(CP_ACP, 0, in, (insize == SIZE_MAX) ? -1 : insize, NULL, 0);
@@ -732,6 +732,7 @@ charset_error_t charset_iconv(const void* in, void* out, charset_t inset, charse
 
 		infake = unicode_in;
 		insetfake = CHARSET_WCHAR_T;
+		insizefake = (needed + 1) * sizeof(wchar_t);
 		break;
 	}
 #endif
@@ -786,7 +787,7 @@ done:
 	}
 #endif
 	default:
-		memcpy(out, &outfake, sizeof(outfake));
+		memcpy(out, &outfake, sizeof(void *));
 		break;
 	}
 

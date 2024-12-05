@@ -37,6 +37,12 @@ typedef struct {
 	char *(*get_clipboard)(void);
 } schism_clippy_backend_t;
 
+#ifdef SCHISM_WIN32
+extern const schism_clippy_backend_t schism_clippy_backend_win32;
+#endif
+#ifdef SCHISM_MACOSX
+extern const schism_clippy_backend_t schism_clippy_backend_macosx;
+#endif
 #ifdef SCHISM_SDL2
 extern const schism_clippy_backend_t schism_clippy_backend_sdl2;
 #endif

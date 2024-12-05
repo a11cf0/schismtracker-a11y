@@ -247,7 +247,9 @@ files_win32 = \
 	sys/win32/filetype.c \
 	sys/win32/midi-win32mm.c	\
 	sys/win32/osdefs.c		\
-	sys/win32/slurp-win32.c
+	sys/win32/slurp-win32.c \
+	sys/win32/dmoz.c \
+	sys/win32/clippy.c
 cflags_win32=-I$(srcdir)/sys/win32
 lib_win32=-lwinmm
 
@@ -306,7 +308,8 @@ files_macosx = \
 	sys/macosx/macosx-sdlmain.m	\
 	sys/macosx/ibook-support.c	\
 	sys/macosx/midi-macosx.c	\
-	sys/macosx/osdefs.c
+	sys/macosx/osdefs.c \
+	sys/macosx/clippy.m
 cflags_macosx=
 libs_macosx=$(OSX_LDADD)
 endif

@@ -116,7 +116,6 @@ static char *_internal_clippy_paste(int cb)
 {
 	switch (cb) {
 		case CLIPPY_SELECT:
-			/* is this even remotely useful? */
 			if (backend && backend->have_selection()) {
 				_free_current_selection();
 
@@ -194,6 +193,12 @@ int clippy_init(void)
 {
 	static const schism_clippy_backend_t *backends[] = {
 		// ordered by preference
+#ifdef SCHISM_WIN32
+		&schism_clippy_backend_win32,
+#endif
+#ifdef SCHISM_MACOSX
+		&schism_clippy_backend_macosx,
+#endif
 #ifdef SCHISM_SDL2
 		&schism_clippy_backend_sdl2,
 #endif
