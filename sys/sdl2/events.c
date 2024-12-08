@@ -25,6 +25,7 @@
 #include "events.h"
 #include "backend/events.h"
 #include "util.h"
+#include "video.h"
 
 #include "init.h"
 
@@ -497,11 +498,11 @@ void sdl2_pump_events(void)
 				schism_event.wheel.mouse_x = e.wheel.mouseX;
 				schism_event.wheel.mouse_y = e.wheel.mouseY;
 			} else
-#else
+#endif
 			{
 				video_get_mouse_coordinates(&schism_event.wheel.mouse_x, &schism_event.wheel.mouse_y);
 			}
-#endif
+
 			events_push_event(&schism_event);
 			break;
 		case SDL_DROPFILE:

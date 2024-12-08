@@ -357,6 +357,8 @@ int widget_textentry_add_text(struct widget *w, const char* text) {
 void widget_numentry_change_value(struct widget *w, int new_value)
 {
 	new_value = CLAMP(new_value, w->d.numentry.min, w->d.numentry.max);
+	if (new_value == w->d.numentry.value)
+		return;
 	w->d.numentry.value = new_value;
 	char buf[16];
 	a11y_get_widget_value(w, buf);
