@@ -104,7 +104,7 @@ static void _clippy_copy_to_sys(int cb)
 	free(out_utf8);
 }
 
-static void _string_paste(UNUSED int cb, const char *cbptr)
+static void _string_paste(SCHISM_UNUSED int cb, const char *cbptr)
 {
 	schism_event_t event = {0};
 	event.type = SCHISM_EVENT_PASTE;
@@ -134,12 +134,12 @@ static char *_internal_clippy_paste(int cb)
 			if (backend && backend->have_clipboard()) {
 				_free_current_clipboard();
 
-				char *cb = backend->get_clipboard();
+				char *c = backend->get_clipboard();
 
-				if (charset_iconv(cb, &_current_clipboard, CHARSET_UTF8, CHARSET_CP437, SIZE_MAX))
-					_current_clipboard = str_dup(cb);
+				if (charset_iconv(c, &_current_clipboard, CHARSET_UTF8, CHARSET_CP437, SIZE_MAX))
+					_current_clipboard = str_dup(c);
 
-				free(cb);
+				free(c);
 
 				return _current_clipboard;
 			}

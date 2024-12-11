@@ -145,6 +145,9 @@ uint32_t it_decompress16(void *dest, uint32_t len, slurp_t *fp, int it215, int c
 uint32_t mdl_decompress8(void *dest, uint32_t len, slurp_t *fp);
 uint32_t mdl_decompress16(void *dest, uint32_t len, slurp_t *fp);
 
+/* returns 0 on success */
+int32_t huffman_decompress(slurp_t *slurp, disko_t *disko);
+
 /* --------------------------------------------------------------------------------------------------------- */
 
 /* shared by the .it, .its, and .iti saving functions */
@@ -177,6 +180,14 @@ typedef struct chunk {
 	uint32_t size;
 	int64_t offset;
 } iff_chunk_t;
+
+/* chunk enums */
+enum {
+	IFF_CHUNK_SIZE_LE = (1 << 0), /* for RIFF */
+	IFF_CHUNK_ALIGNED = (1 << 1), /* are the structures word aligned? */
+};
+
+int iff_chunk_peek_ex(iff_chunk_t *chunk, slurp_t *fp, uint32_t flags);
 
 int iff_chunk_peek(iff_chunk_t *chunk, slurp_t *fp);
 int riff_chunk_peek(iff_chunk_t *chunk, slurp_t *fp);

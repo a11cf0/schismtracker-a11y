@@ -25,7 +25,7 @@ dnl PACKAGE_VERSION will be either "" if not using git, or date of the last git 
 m4_define([last_git_commit], patsubst(m4_esyscmd([git log -n 1 --date=short --format=format:%cd]), [[^0-9]]))
 AC_INIT([schismtracker],[last_git_commit])
 
-last_commit_date=[last_git_commit]
+last_commit_date="last_git_commit"
 
 AC_CONFIG_SRCDIR([schism/main.c])
 
@@ -36,6 +36,7 @@ AC_CANONICAL_HOST
 
 if test "x$last_commit_date" = "x"; then
 	AC_DEFINE([EMPTY_VERSION], [], [Empty version number (okay if you don't have Git)])
+	echo "*** empty version"
 fi
 
 dnl -----------------------------------------------------------------------
@@ -400,6 +401,28 @@ AM_CONDITIONAL([USE_CONTROLLER], [test "x$use_controller" = "xyes"])
 AM_CONDITIONAL([USE_MACOSX], [test "x$use_macosx" = "xyes"])
 AM_CONDITIONAL([am__fastdepOBJC], [test "x$use_macosx" = "xyes"])
 AM_CONDITIONAL([USE_NETWORK], [test "x$use_network" = "xyes"])
+
+dnl ------------------------------------------------------------------------
+
+AC_MSG_CHECKING([for arithmetic right shift])
+AC_COMPILE_IFELSE([[int xxx[((-1 >> 1) == -1) ? 1 : -1];]],
+	[have_arithmetic_rshift=yes],
+	[have_arithmetic_rshift=no])
+AC_MSG_RESULT([$have_arithmetic_rshift])
+if test "x$have_arithmetic_rshift" = "xyes"; then
+	AC_DEFINE([HAVE_ARITHMETIC_RSHIFT], [1], [ ])
+fi
+
+# An implementation can technically do whatever it wants here...
+AC_MSG_CHECKING([for sane signed left shift])
+AC_RUN_IFELSE([[int main(void) { return ((-1 << 1) != -2); } ]],
+	[have_sane_signed_lshift=yes],
+	[have_sane_signed_lshift=no],
+	[have_sane_signed_lshift=no]) # assume no
+AC_MSG_RESULT([$have_sane_signed_lshift])
+if test "x$have_sane_signed_lshift" = "xyes"; then
+	AC_DEFINE([HAVE_SANE_SIGNED_LSHIFT], [1], [ ])
+fi
 
 dnl --------------------------------------------------------------------------
 

@@ -397,6 +397,7 @@ schismtracker_SOURCES = \
 	fmt/compression.c		\
 	fmt/d00.c			\
 	fmt/dsm.c			\
+	fmt/edl.c			\
 	fmt/f2r.c			\
 	fmt/far.c			\
 	fmt/generic.c			\
