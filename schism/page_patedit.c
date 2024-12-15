@@ -3411,9 +3411,8 @@ static int pattern_editor_insert(struct key_event *k)
 		/* Be quiet when pasting templates.
 		It'd be nice to "play" a template when pasting it (maybe only for ones that are one row high)
 		so as to hear the chords being inserted etc., but that's a little complicated to do. */
-		// Why so early? Se almost identical code below.
-		// if (NOTE_IS_NOTE(n) && !(template_mode && writenote))
-			// song_keydown(smp, ins, n, vol, current_channel);
+		if (NOTE_IS_NOTE(n) && !(template_mode && writenote))
+			song_keydown(smp, ins, n, vol, current_channel);
 		if (!writenote)
 			break;
 
