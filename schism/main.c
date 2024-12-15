@@ -911,9 +911,9 @@ int schism_main(int argc, char** argv)
 	log_nl();
 
 	if (!dmoz_init()) {
+		log_nl();
 		log_appendf(4, "Failed to initialize a filesystem backend!");
 		log_appendf(4, "Portable mode will not work properly!");
-		log_nl();
 	}
 
 	if (!timer_init()) {
@@ -937,12 +937,10 @@ int schism_main(int argc, char** argv)
 	cfg_load();
 
 	if (!clippy_init()) {
+		log_nl();
 		log_appendf(4, "Failed to initialize a clipboard backend!");
 		log_appendf(4, "Copying to the system clipboard will not work properly!");
-		log_nl();
 	}
-
-	log_nl();
 
 	if (did_classic) {
 		status.flags &= ~CLASSIC_MODE;
@@ -989,12 +987,12 @@ int schism_main(int argc, char** argv)
 		}
 	}
 	if (initial_dir) {
-		strncpy(cfg_dir_modules, initial_dir, PATH_MAX);
-		cfg_dir_modules[PATH_MAX] = 0;
-		strncpy(cfg_dir_samples, initial_dir, PATH_MAX);
-		cfg_dir_samples[PATH_MAX] = 0;
-		strncpy(cfg_dir_instruments, initial_dir, PATH_MAX);
-		cfg_dir_instruments[PATH_MAX] = 0;
+		strncpy(cfg_dir_modules, initial_dir, ARRAY_SIZE(cfg_dir_modules) - 1);
+		cfg_dir_modules[ARRAY_SIZE(cfg_dir_modules) - 1] = 0;
+		strncpy(cfg_dir_samples, initial_dir, ARRAY_SIZE(cfg_dir_samples) - 1);
+		cfg_dir_samples[ARRAY_SIZE(cfg_dir_samples) - 1] = 0;
+		strncpy(cfg_dir_instruments, initial_dir, ARRAY_SIZE(cfg_dir_instruments) - 1);
+		cfg_dir_instruments[ARRAY_SIZE(cfg_dir_instruments) - 1] = 0;
 		free(initial_dir);
 	}
 
