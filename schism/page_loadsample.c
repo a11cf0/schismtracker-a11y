@@ -655,8 +655,9 @@ static void do_delete_file(SCHISM_UNUSED void *data)
 static const char* file_list_a11y_get_value(char *buf)
 {
 	dmoz_file_t* file = flist.files[current_file];
-	sprintf(buf, "%s %s",
-		file->base, file->title);
+	strcpy(buf, file->base);
+	if (file->title && *file->title)
+		sprintf(&buf[strlen(buf)], "; %s", file->title);
 	return buf;
 }
 
@@ -685,6 +686,7 @@ static int file_list_handle_text_input(const char *text)
 static int file_list_handle_key(struct key_event * k)
 {
 	int new_file = current_file;
+	char buf[256];
 
 	new_file = CLAMP(new_file, 0, flist.num_files - 1);
 
@@ -730,6 +732,8 @@ static int file_list_handle_key(struct key_event * k)
 			if (k->state == KEY_PRESS)
 				return 1;
 			search_pos = -1;
+			file_list_a11y_get_value(buf);
+			a11y_output(buf, 0);
 			status.flags |= NEED_UPDATE;
 			return 1;
 		}
@@ -755,6 +759,8 @@ static int file_list_handle_key(struct key_event * k)
 			if (k->state == KEY_PRESS)
 				return 0;
 			search_pos = 0;
+			file_list_a11y_get_value(buf);
+			a11y_output(buf, 0);
 			status.flags |= NEED_UPDATE;
 			return 1;
 		} /* else fall through */

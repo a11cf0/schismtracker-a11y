@@ -439,9 +439,11 @@ static void search_redraw(void)
 static const char* file_list_a11y_get_value(char *buf)
 {
 	dmoz_file_t *file = flist.files[current_file];
-	if (current_file >= 0 && current_file < flist.num_files)
-		sprintf(buf, "%s %s", file->base, file->title);
-	else
+	if (current_file >= 0 && current_file < flist.num_files) {
+		strcpy(buf, file->base);
+		if (file->title && *file->title)
+			sprintf(&buf[strlen(buf)], "; %s", file->title);
+	} else
 		a11y_get_text_from_rect(3, 13, 9, 1, buf);
 	return buf;
 }
@@ -759,9 +761,10 @@ static int file_list_handle_key(struct key_event * k)
 	case SCHISM_KEYSYM_BACKSPACE:
 		if (k->state == KEY_RELEASE)
 			return 1;
-		if (k->mod & SCHISM_KEYMOD_CTRL)
+		if (k->mod & SCHISM_KEYMOD_CTRL) {
 			search_text_clear();
-		else
+			a11y_output("Search text cleared", 0);
+		} else
 			search_text_delete_char();
 		return 1;
 	case SCHISM_KEYSYM_p:
@@ -885,6 +888,7 @@ static int dir_list_handle_text_input(const char *text) {
 static int dir_list_handle_key(struct key_event * k, int width)
 {
 	int new_dir = current_dir;
+	char buf[256];
 
 	if (k->mouse != MOUSE_NONE) {
 		if (k->x >= 51 && k->x <= (51 + width - 1) && k->y >= 13 && k->y <= 34) {
@@ -944,10 +948,9 @@ static int dir_list_handle_key(struct key_event * k, int width)
 		top_file = current_file = 0;
 		if (current_dir >= 0 && current_dir < dlist.num_dirs) {
 			change_dir(dlist.dirs[current_dir]->path);
-		char buf[256];
-		dir_list_a11y_get_value(buf);
-		a11y_output(buf, 0);
-	}
+			dir_list_a11y_get_value(buf);
+			a11y_output(buf, 0);
+		}
 
 		if (flist.num_files > 0)
 			*selected_widget = 0;
@@ -956,9 +959,10 @@ static int dir_list_handle_key(struct key_event * k, int width)
 	case SCHISM_KEYSYM_BACKSPACE:
 		if (k->state == KEY_RELEASE)
 			return 0;
-		if (k->mod & SCHISM_KEYMOD_CTRL)
+		if (k->mod & SCHISM_KEYMOD_CTRL) {
 			search_text_clear();
-		else
+			a11y_output("Search text cleared", 0);
+		} else
 			search_text_delete_char();
 		return 1;
 	case SCHISM_KEYSYM_SLASH:
@@ -972,6 +976,8 @@ static int dir_list_handle_key(struct key_event * k, int width)
 			new_dir = 0;
 		} else if (current_dir > 0 && current_dir < dlist.num_dirs) {
 			change_dir(dlist.dirs[current_dir]->path);
+			dir_list_a11y_get_value(buf);
+			a11y_output(buf, 0);
 			status.flags |= NEED_UPDATE;
 			return 1;
 		}
@@ -996,7 +1002,6 @@ static int dir_list_handle_key(struct key_event * k, int width)
 	if (new_dir != current_dir) {
 		current_dir = new_dir;
 		dir_list_reposition();
-		char buf[256];
 		dir_list_a11y_get_value(buf);
 		a11y_output(buf, 0);
 		status.flags |= NEED_UPDATE;

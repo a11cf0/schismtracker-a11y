@@ -378,20 +378,22 @@ static void do_delete_file(SCHISM_UNUSED void *data)
 static const char* file_list_a11y_get_value(char *buf)
 {
 	dmoz_file_t *file = flist.files[current_file];
-	sprintf(buf, "%s %s ", file->base, file->title);
+	strcpy(buf, file->base);
+	if (file->title && *file->title)
+		sprintf(&buf[strlen(buf)], "; %s", file->title);
 	if (file->sampsize > 1) {
-		sprintf(&buf[strlen(buf)], "%d Samples", file->sampsize);
+		sprintf(&buf[strlen(buf)], "; %d Samples", file->sampsize);
 	} else if (file->sampsize == 1) {
-		strcat(buf, "1 sample");
+		strcat(buf, "; 1 sample");
 	} else if (file->type & TYPE_MODULE_MASK) {
-		strcat(buf, "Module");
+		strcat(buf, "; Module");
 	}
 	if (file->filesize > 1048576) {
-		sprintf(&buf[strlen(buf)], " %lum", (unsigned long)(file->filesize / 1048576));
+		sprintf(&buf[strlen(buf)], "; %lum", (unsigned long)(file->filesize / 1048576));
 	} else if (file->filesize > 1024) {
-		sprintf(&buf[strlen(buf)], " %luk", (unsigned long)(file->filesize / 1024));
+		sprintf(&buf[strlen(buf)], "; %luk", (unsigned long)(file->filesize / 1024));
 	} else if (file->filesize > 0) {
-		sprintf(&buf[strlen(buf)], " %lu", (unsigned long)(file->filesize));
+		sprintf(&buf[strlen(buf)], "; %lu", (unsigned long)(file->filesize));
 	}
 	return buf;
 }
@@ -421,6 +423,7 @@ static int file_list_handle_text_input(const char *text)
 static int file_list_handle_key(struct key_event * k)
 {
 	int new_file = current_file;
+	char buf[256];
 
 	new_file = CLAMP(new_file, 0, flist.num_files - 1);
 
@@ -460,6 +463,8 @@ static int file_list_handle_key(struct key_event * k)
 			if (k->state == KEY_PRESS)
 				return 1;
 			slash_search_mode = -1;
+			file_list_a11y_get_value(buf);
+			a11y_output(buf, 0);
 			status.flags |= NEED_UPDATE;
 			return 1;
 		}
@@ -485,6 +490,8 @@ static int file_list_handle_key(struct key_event * k)
 			if (k->state == KEY_PRESS)
 				return 0;
 			slash_search_mode = 0;
+			file_list_a11y_get_value(buf);
+			a11y_output(buf, 0);
 			status.flags |= NEED_UPDATE;
 			return 1;
 		} /* else fall through */
@@ -511,7 +518,6 @@ static int file_list_handle_key(struct key_event * k)
 	if (new_file != current_file) {
 		current_file = new_file;
 		file_list_reposition();
-		char buf[256];
 		file_list_a11y_get_value(buf);
 		a11y_output(buf, 0);
 		status.flags |= NEED_UPDATE;
