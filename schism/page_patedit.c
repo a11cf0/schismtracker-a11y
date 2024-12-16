@@ -854,6 +854,7 @@ static void history_close(SCHISM_UNUSED void *data)
 static int history_handle_key(struct key_event *k)
 {
 	int i,j;
+	int prev_undo_selection = undo_selection;
 	if (! NO_MODIFIER(k->mod)) return 0;
 	switch (k->sym) {
 	case SCHISM_KEYSYM_ESCAPE:
@@ -867,7 +868,8 @@ static int history_handle_key(struct key_event *k)
 			return 0;
 		undo_selection--;
 		if (undo_selection < 0) undo_selection = 0;
-		a11y_text_reported = 0;
+		if (undo_selection != prev_undo_selection)
+			a11y_text_reported = 0;
 		status.flags |= NEED_UPDATE;
 		return 1;
 	case SCHISM_KEYSYM_DOWN:
@@ -875,7 +877,8 @@ static int history_handle_key(struct key_event *k)
 			return 0;
 		undo_selection++;
 		if (undo_selection > 9) undo_selection = 9;
-		a11y_text_reported = 0;
+		if (undo_selection != prev_undo_selection)
+			a11y_text_reported = 0;
 		status.flags |= NEED_UPDATE;
 		return 1;
 	case SCHISM_KEYSYM_RETURN:
@@ -3664,6 +3667,7 @@ static int pattern_editor_handle_alt_key(struct key_event * k)
 		if (k->state == KEY_PRESS)
 			return 1;
 		fast_save_update();
+		a11y_output("Pattern stored", 0);
 		return 1;
 
 	case SCHISM_KEYSYM_BACKSPACE:
@@ -3671,6 +3675,7 @@ static int pattern_editor_handle_alt_key(struct key_event * k)
 			return 1;
 		pated_save("Undo revert pattern data (Alt-BkSpace)");
 		snap_paste(&fast_save, 0, 0, 0);
+		a11y_output("Pattern reverted", 0);
 		return 1;
 
 	case SCHISM_KEYSYM_b:
