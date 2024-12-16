@@ -245,7 +245,7 @@ const char* a11y_try_find_widget_label(struct widget *w, char* buf)
 		for (i = 1; i <= 2; i++) {
 			for (j = 0; j < 6 && j < 80 - w->x; j++) {
 				label = acbuf_get_ptr_to(w->x + j, w->y - i);
-				if (label && isprint(*label)) {
+				if (label && isprint(*label) && _find_widget_xy(w->x + j, w->y - i) < 0) {
 					found = 1;
 					break;
 				}

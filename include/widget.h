@@ -71,6 +71,7 @@ int widget_textentry_add_text(struct widget *widget, const char* text);
 void widget_numentry_change_value(struct widget *widget, int new_value);
 int widget_numentry_handle_text(struct widget *w, const char* text_input);
 
+int _find_widget_xy(int x, int y);
 int widget_change_focus_to_xy(int x, int y);
 void widget_change_focus_to(int new_widget_index);
 /* p_widgets should point to the group of widgets (not the actual widget that is
