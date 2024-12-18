@@ -1472,24 +1472,25 @@ success:
 
 static int _audio_try_driver(const char *driver, const char *device, int verbose)
 {
-	if (backend && backend->init_driver(driver))
+	if (!backend)
+		return 0;
+
+	if (backend->init_driver(driver))
 		return 0;
 
 	driver_name = str_dup(driver);
 
-	if (!_audio_open_device(device, verbose)) {
-		if (backend) {
-			backend->quit_driver();
-			free(driver_name);
-			driver_name = NULL;
-		}
-		return 0;
+	if (_audio_open_device(device, verbose)) {
+		audio_was_init = 1;
+		refresh_audio_device_list();
+		return 1;
 	}
 
-	audio_was_init = 1;
-	refresh_audio_device_list();
+	backend->quit_driver();
+	free(driver_name);
+	driver_name = NULL;
 
-	return 1;
+	return 0;
 }
 
 static void _audio_quit(void)
@@ -1527,12 +1528,20 @@ static int _audio_init_head(const char *driver, const char *device, int verbose)
 			return 1;
 	}
 
-#if defined(SCHISM_SDL2) || defined(SCHISM_SDL12)
-	/* we ought to allow this envvar to work under SDL */
-	n = getenv("SDL_AUDIODRIVER");
-	if (n && *n && _audio_try_driver(n, device, verbose))
-		return 1;
+	if (
+		// hm... this sucks! lol
+#ifdef SCHISM_SDL12
+		backend == &schism_audio_backend_sdl12 ||
 #endif
+#ifdef SCHISM_SDL2
+		backend == &schism_audio_backend_sdl2 ||
+#endif
+		0) {
+		/* we ought to allow this envvar to work under SDL */
+		n = getenv("SDL_AUDIODRIVER");
+		if (n && *n && _audio_try_driver(n, device, verbose))
+			return 1;
+	}
 
 	const int cnt = backend ? backend->driver_count() : 0;
 
