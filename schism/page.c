@@ -1231,16 +1231,16 @@ void handle_key(struct key_event *k)
 		}
 		break;
 	case SCHISM_KEYSYM_SLASH:
+	case SCHISM_KEYSYM_KP_DIVIDE:
 		if (k->state == KEY_RELEASE) return;
 		if (status.flags & DISKWRITER_ACTIVE) return;
-		if (k->orig_sym != SCHISM_KEYSYM_KP_DIVIDE) return;
 		kbd_set_current_octave(kbd_get_current_octave() - 1);
 		a11y_outputf("Octave %u", 1, kbd_get_current_octave());
 		return;
 	case SCHISM_KEYSYM_ASTERISK:
+	case SCHISM_KEYSYM_KP_MULTIPLY:
 		if (k->state == KEY_RELEASE) return;
 		if (status.flags & DISKWRITER_ACTIVE) return;
-		if (k->orig_sym != SCHISM_KEYSYM_KP_MULTIPLY) return;
 		kbd_set_current_octave(kbd_get_current_octave() + 1);
 		a11y_outputf("Octave %u", 1, kbd_get_current_octave());
 		return;

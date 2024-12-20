@@ -1059,9 +1059,9 @@ static int info_page_handle_key(struct key_event * k)
 	}
 
 	/* hack to render this useful :) */
-	if (k->sym == SCHISM_KEYSYM_KP_9) {
+	if (k->orig_sym == SCHISM_KEYSYM_KP_9) {
 		k->sym = SCHISM_KEYSYM_F9;
-	} else if (k->sym == SCHISM_KEYSYM_KP_0) {
+	} else if (k->orig_sym == SCHISM_KEYSYM_KP_0) {
 		k->sym = SCHISM_KEYSYM_F10;
 	}
 

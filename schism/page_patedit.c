@@ -3647,9 +3647,9 @@ static int pattern_editor_handle_alt_key(struct key_event * k)
 	int total_rows = song_get_rows_in_pattern(current_pattern);
 
 	/* hack to render this useful :) */
-	if (k->sym == SCHISM_KEYSYM_KP_9) {
+	if (k->orig_sym == SCHISM_KEYSYM_KP_9) {
 		k->sym = SCHISM_KEYSYM_F9;
-	} else if (k->sym == SCHISM_KEYSYM_KP_0) {
+	} else if (k->orig_sym == SCHISM_KEYSYM_KP_0) {
 		k->sym = SCHISM_KEYSYM_F10;
 	}
 
@@ -4077,6 +4077,7 @@ static int pattern_editor_handle_ctrl_key(struct key_event * k)
 		status.flags |= NEED_UPDATE;
 		return 1;
 	case SCHISM_KEYSYM_MINUS:
+	case SCHISM_KEYSYM_KP_MINUS:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		if (song_get_mode() & (MODE_PLAYING|MODE_PATTERN_LOOP) && playback_tracing)
@@ -4085,10 +4086,8 @@ static int pattern_editor_handle_ctrl_key(struct key_event * k)
 		a11y_report_pattern();
 		return 1;
 	case SCHISM_KEYSYM_EQUALS:
-		if (!(k->mod & SCHISM_KEYMOD_SHIFT))
-			return 0;
-		// fallthrough
 	case SCHISM_KEYSYM_PLUS:
+	case SCHISM_KEYSYM_KP_PLUS:
 		if (k->state == KEY_RELEASE)
 			return 1;
 		if (song_get_mode() & (MODE_PLAYING|MODE_PATTERN_LOOP) && playback_tracing)
@@ -4526,6 +4525,7 @@ static int pattern_editor_handle_key(struct key_event * k)
 		a11y_text_reported = 0;
 		break;
 	case SCHISM_KEYSYM_MINUS:
+	case SCHISM_KEYSYM_KP_MINUS:
 		if (k->state == KEY_RELEASE)
 			return 0;
 
@@ -4549,10 +4549,8 @@ static int pattern_editor_handle_key(struct key_event * k)
 		a11y_report_pattern();
 		return 1;
 	case SCHISM_KEYSYM_EQUALS:
-		if (!(k->mod & SCHISM_KEYMOD_SHIFT))
-			return 0;
-		// fallthrough
 	case SCHISM_KEYSYM_PLUS:
+	case SCHISM_KEYSYM_KP_PLUS:
 		if (k->state == KEY_RELEASE)
 			return 0;
 
@@ -4569,7 +4567,7 @@ static int pattern_editor_handle_key(struct key_event * k)
 			};
 		}
 
-		if ((k->mod & SCHISM_KEYMOD_SHIFT) && k->sym == SCHISM_KEYSYM_KP_PLUS)
+		if ((k->mod & SCHISM_KEYMOD_SHIFT))
 			set_current_pattern(current_pattern + 4);
 		else
 			set_current_pattern(current_pattern + 1);
