@@ -71,6 +71,9 @@ static int display_native_y = -1;
 
 #include <SDL.h>
 #include <SDL_syswm.h>
+#ifdef SCHISM_MACOS
+# include <SDL_main.h>
+#endif
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -86,6 +89,10 @@ static int display_native_y = -1;
 #endif
 
 #include "charset.h"
+
+#ifdef SCHISM_MACOS
+# include <Quickdraw.h>
+#endif
 
 enum {
 	VIDEO_SURFACE = 0,
@@ -121,9 +128,9 @@ static struct video_cf {
 		unsigned int y;
 	} mouse;
 
-	unsigned int pal[256];
+	uint32_t pal[256];
 
-	unsigned int tc_bgr32[256];
+	uint32_t tc_bgr32[256];
 } video;
 
 static int _did_init = 0;
@@ -154,6 +161,9 @@ static void (SDLCALL *sdl12_WM_SetIcon)(SDL_Surface *icon, Uint8 *mask);
 static SDL_Surface *(SDLCALL *sdl12_CreateRGBSurfaceFrom)(void *pixels, int width, int height, int depth, int pitch, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask);
 static int (SDLCALL *sdl12_EnableUNICODE)(int enable);
 static int (SDLCALL *sdl12_GetWMInfo)(SDL_SysWMinfo *);
+#ifdef SCHISM_MACOS
+static void (SDLCALL *sdl12_InitQuickDraw)(struct QDGlobals *the_qd);
+#endif
 
 static const char *sdl12_video_driver_name(void)
 {
@@ -871,6 +881,9 @@ static int sdl12_video_load_syms(void)
 	SCHISM_SDL12_SYM(CreateRGBSurfaceFrom);
 	SCHISM_SDL12_SYM(EnableUNICODE);
 	SCHISM_SDL12_SYM(GetWMInfo);
+#ifdef SCHISM_MACOS
+	SCHISM_SDL12_SYM(InitQuickDraw);
+#endif
 
 	return 0;
 }
@@ -889,6 +902,10 @@ static int sdl12_video_init(void)
 		sdl12_quit();
 		return 0;
 	}
+
+#ifdef SCHISM_MACOS
+	sdl12_InitQuickDraw(&qd);
+#endif
 
 	sdl12_EnableUNICODE(1);
 

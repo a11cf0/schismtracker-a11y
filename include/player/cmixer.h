@@ -17,7 +17,7 @@ void end_channel_ofs(song_voice_t *, int32_t *, uint32_t);
 void interleave_front_rear(int32_t *, int32_t *, uint32_t);
 void mono_from_stereo(int32_t *, uint32_t);
 
-uint32_t csf_create_stereo_mix(song_t *csf, int32_t count);
+uint32_t csf_create_stereo_mix(song_t *csf, uint32_t count);
 
 void setup_channel_filter(song_voice_t *pChn, int32_t reset, int32_t flt_modifier, int32_t freq);
 
@@ -36,7 +36,6 @@ void eq_mono(song_t *, int32_t *, uint32_t);
 void eq_stereo(song_t *, int32_t *, uint32_t);
 void initialize_eq(int32_t, float);
 void set_eq_gains(const uint32_t *, uint32_t, const uint32_t *, int32_t, int32_t);
-
 
 // sndmix.c
 extern int32_t g_dry_rofs_vol;

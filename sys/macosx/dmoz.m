@@ -21,32 +21,45 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef SCHISM_SYS_SDL12_INIT_H_
-#define SCHISM_SYS_SDL12_INIT_H_
-
 #include "headers.h"
 
-#include <SDL.h>
+#include "backend/dmoz.h"
+#include "loadso.h"
+#include "charset.h"
+#include "mem.h"
+#include "util.h"
 
-int sdl12_init(void);
-void sdl12_quit(void);
+#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
 
-// eh?
-const char *sdl12_get_error(void);
+// FIXME we need to also get the Application Support directory through
+// NSSearchPathForDirectoriesInDomains() 
+static char *macosx_dmoz_get_exe_path(void)
+{
+	NSBundle *bundle = [NSBundle mainBundle];
 
-#ifdef SDL12_DYNAMIC_LOAD
+	/* this returns the exedir for non-bundled and the resourceDir for bundled */
+	const char *base = [[bundle resourcePath] fileSystemRepresentation];
+	if (base)
+		return str_dup(base);
 
-// must be called AFTER sdl12_init()
-int sdl12_load_sym(const char *fn, void *addr);
+	return NULL;
+}
 
-# define SCHISM_SDL12_SYM(x) \
-	if (!sdl12_load_sym("SDL_" #x, &sdl12_##x)) return -1
+static int macosx_dmoz_init(void)
+{
+	// do nothing
+	return 1;
+}
 
-#else
+static void macosx_dmoz_quit(void)
+{
+	// do nothing
+}
 
-# define SCHISM_SDL12_SYM(x) \
-	sdl12_##x = SDL_##x
+const schism_dmoz_backend_t schism_dmoz_backend_macosx = {
+	.init = macosx_dmoz_init,
+	.quit = macosx_dmoz_quit,
 
-#endif
-
-#endif /* SCHISM_SYS_SDL12_INIT_H_ */
+	.get_exe_path = macosx_dmoz_get_exe_path,
+};

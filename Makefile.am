@@ -156,6 +156,7 @@ noinst_HEADERS = \
 	sys/wii/certs_bin.h		\
 	sys/wii/isfs.h			\
 	sys/wii/su_tik_bin.h		\
+	sys/macos/dirent/macos-dirent.h \
 	sys/wii/su_tmd_bin.h        \
 	sys/sdl12/init.h \
 	sys/sdl2/init.h \
@@ -320,9 +321,29 @@ files_macosx = \
 	sys/macosx/ibook-support.c	\
 	sys/macosx/midi-macosx.c	\
 	sys/macosx/osdefs.c \
-	sys/macosx/clippy.m
+	sys/macosx/clippy.m \
+	sys/macosx/dmoz.m
 cflags_macosx=
 libs_macosx=$(OSX_LDADD)
+endif
+
+if USE_MACOS
+files_macos = \
+	sys/macos/osdefs.c sys/macos/dirent/macos-dirent.c sys/macos/threads.c
+cflags_macos=-I$(top_srcdir)/sys/macos/dirent
+libs_macos=-lAppearanceLib -lInputSprocketLib -lControlStripLib -lControlsLib -lCursorDevicesGlue -lMPLibrary
+
+# Specific to the Retro68 toolchain to create MacBinary files
+schismtracker.bin: schismtracker.pef
+schismtracker.pef: schismtracker.xcoff
+
+# this makes a lot more than just schismtracker.bin, but whatever
+.pef.bin:
+	$(REZ) -I"$(RETRO68_ROOT)/powerpc-apple-macos/RIncludes" "$(top_srcdir)/sys/macos/resource.r" -o $@ -t "APPL" -c "????" --data $<
+
+# "pef" ?? lol
+.xcoff.pef:
+	$(MAKE_PEF) $< -o $@
 endif
 
 if USE_FLAC
@@ -384,6 +405,9 @@ files_stdlib += sys/stdlib/setenv.c
 endif
 if NEED_UNSETENV
 files_stdlib += sys/stdlib/unsetenv.c
+endif
+if NEED_GETOPT
+files_stdlib += sys/stdlib/getopt.c
 endif
 
 ## aaaaaaaaahhhhhhhhhhhhhhhhhhh!!!!!!!1
@@ -521,7 +545,8 @@ schismtracker_SOURCES = \
 	$(files_mediafoundation) \
 	$(files_wiiu)           \
 	$(files_sdl2)			\
-	$(files_sdl12)
+	$(files_sdl12)			\
+	$(files_macos)
 
 # have version.o rely on all files
 schism/version.$(OBJEXT): $(filter-out schism/version.$(OBJEXT),$(schismtracker_OBJECTS)) $(HEADERS)
@@ -530,11 +555,11 @@ component_cflags = $(cflags_sdl2) $(cflags_alsa) $(cflags_oss) \
 	$(cflags_network) $(cflags_x11) $(cflags_fmopl) \
 	$(cflags_version) $(cflags_win32) $(cflags_wii) \
 	$(cflags_macosx) $(cflags_flac) $(cflags_jack) \
-	$(cflags_wiiu) $(cflags_sdl12) \
+	$(cflags_wiiu) $(cflags_sdl12) $(cflags_macos) \
 	$(UTF8PROC_CFLAGS)
 schismtracker_CPPFLAGS = -I$(srcdir)/include -I. $(cppflags_wii) $(cppflags_wiiu)
 schismtracker_CFLAGS = $(AM_CFLAGS) $(component_cflags)
 schismtracker_OBJCFLAGS = $(AM_OBJCFLAGS) $(component_cflags)
 
 schismtracker_DEPENDENCIES = $(files_windres)
-schismtracker_LDADD = $(LIBM) $(libs_x11) $(libs_wii) $(libs_wiiu) $(libs_jack) $(libs_macosx) $(lib_sral) $(lib_asound) $(lib_win32) $(libs_network) $(libs_flac) $(lib_mediafoundation) $(UTF8PROC_LIBS) $(libs_sdl2) $(libs_sdl12)
+schismtracker_LDADD = $(LIBM) $(libs_x11) $(libs_wii) $(libs_wiiu) $(libs_jack) $(libs_macosx) $(lib_sral) $(lib_asound) $(lib_win32) $(libs_network) $(libs_flac) $(lib_mediafoundation) $(UTF8PROC_LIBS) $(libs_sdl2) $(libs_sdl12) $(libs_macos)

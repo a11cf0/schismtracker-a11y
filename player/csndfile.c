@@ -647,7 +647,7 @@ uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags, ui
 			const signed char *data;
 
 			for (channel = 0; channel < stride; channel++) {
-				data = (const signed char *) sample->data + channel;
+				data = (const int8_t *) sample->data + channel;
 				for (pos = 0; pos < len; pos++) {
 					disko_putc(fp, *data + add);
 					data += stride;
@@ -1363,7 +1363,7 @@ void csf_stop_sample(song_t *csf, song_sample_t *smp)
 int csf_destroy_sample(song_t *csf, uint32_t nsmp)
 {
 	song_sample_t *smp = csf->samples + nsmp;
-	signed char *data;
+	int8_t *data;
 
 	if (nsmp >= MAX_SAMPLES)
 		return 0;
@@ -1722,9 +1722,9 @@ void csf_export_s3m_effect(uint8_t *pcmd, uint8_t *pprm, int to_it)
 
 void csf_insert_restart_pos(song_t *csf, uint32_t restart_order)
 {
-	int n, max, row;
-	int ord, pat, newpat;
-	int used; // how many times it was used (if >1, copy it)
+	int32_t n, max, row;
+	int32_t ord, pat, newpat;
+	int32_t used; // how many times it was used (if >1, copy it)
 
 	if (!restart_order)
 		return;

@@ -524,11 +524,11 @@ struct multi_write {
 	/* this is optimization for channels that haven't had any data yet
 	(nothing to convert/write, just seek ahead in the data stream) */
 	void (*silence)(void *data, long bytes);
-	int buffer[MIXBUFFERSIZE * 2];
+	int32_t buffer[MIXBUFFERSIZE * 2];
 };
 
 typedef struct song {
-	int mix_buffer[MIXBUFFERSIZE * 2];
+	int32_t mix_buffer[MIXBUFFERSIZE * 2];
 
 	song_voice_t voices[MAX_VOICES];                // Channels
 	uint32_t voice_mix[MAX_VOICES];                 // Channels to be mixed
@@ -568,7 +568,10 @@ typedef struct song {
 	uint8_t row_highlight_minor;
 	char message[MAX_MESSAGE + 1];
 	char title[32];
-	char tracker_id[32]; // irrelevant to the song, just used by some loaders (fingerprint)
+
+	// irrelevant to the song, just used by some loaders (fingerprint)
+	// ...expanded this to the size of the log -paper
+	char tracker_id[74];
 
 	// These store the existing IT save history from prior editing sessions.
 	// Current session data is added at save time, and is NOT a part of histdata.
@@ -608,7 +611,7 @@ uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags, ui
 void csf_adjust_sample_loop(song_sample_t *sample);
 
 extern void (*csf_midi_out_note)(int chan, const song_note_t *m);
-extern void (*csf_midi_out_raw)(const unsigned char *, unsigned int, unsigned int);
+extern void (*csf_midi_out_raw)(const unsigned char *, uint32_t, uint32_t);
 
 void csf_import_mod_effect(song_note_t *m, int from_xm);
 uint16_t csf_export_mod_effect(const song_note_t *m, int xm);
@@ -640,14 +643,14 @@ int csf_get_highest_used_channel(song_t *csf);
 int csf_set_wave_config(song_t *csf, uint32_t rate, uint32_t bits, uint32_t channels);
 
 // Mixer Config
-int csf_init_player(song_t *csf, int reset); // bReset=false
+int32_t csf_init_player(song_t *csf, int reset); // bReset=false
 int csf_set_resampling_mode(song_t *csf, uint32_t mode); // SRCMODE_XXXX
 
 
 // sndmix
 uint32_t csf_read(song_t *csf, void *v_buffer, uint32_t bufsize);
-int csf_process_tick(song_t *csf);
-int csf_read_note(song_t *csf);
+int32_t csf_process_tick(song_t *csf);
+int32_t csf_read_note(song_t *csf);
 
 // snd_fx
 uint32_t csf_get_length(song_t *csf); // (in seconds)
@@ -672,7 +675,6 @@ uint32_t transpose_to_frequency(int32_t transp, int32_t ftune);
 int32_t frequency_to_transpose(uint32_t freq);
 uint32_t calc_halftone(uint32_t hz, int32_t rel);
 
-
 // sndfile
 song_t *csf_allocate(void);
 void csf_free(song_t *csf);
@@ -694,7 +696,7 @@ void csf_insert_restart_pos(song_t *csf, uint32_t restart_order); // hax
 void csf_forget_history(song_t *csf); // Send the edit log down the memory hole.
 
 /* apply a preset Adlib patch */
-void adlib_patch_apply(song_sample_t *smp, int patchnum);
+void adlib_patch_apply(song_sample_t *smp, int32_t patchnum);
 
 ///////////////////////////////////////////////////////////
 
@@ -710,7 +712,6 @@ static inline int32_t _muldivr(int32_t a, int32_t b, int32_t c)
 {
 	return ((int64_t) a * (int64_t) b + (c >> 1)) / c;
 }
-
 
 #endif /* SCHISM_PLAYER_SNDFILE_H_ */
 

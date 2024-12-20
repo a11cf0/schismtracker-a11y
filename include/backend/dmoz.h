@@ -35,6 +35,9 @@ typedef struct {
 #ifdef SCHISM_WIN32
 extern const schism_dmoz_backend_t schism_dmoz_backend_win32;
 #endif
+#ifdef SCHISM_MACOSX
+extern const schism_dmoz_backend_t schism_dmoz_backend_macosx;
+#endif
 #ifdef SCHISM_SDL2
 extern const schism_dmoz_backend_t schism_dmoz_backend_sdl2;
 #endif

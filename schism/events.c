@@ -103,8 +103,10 @@ int events_init(const schism_events_backend_t *backend)
 	}
 
 	queue_mutex = mt_mutex_create();
-	if (!queue_mutex)
+	if (!queue_mutex) {
+		os_show_message_box("Critical error!", "Failed to create event queue mutex...");
 		return 0;
+	}
 
 	return 1;
 }

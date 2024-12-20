@@ -216,7 +216,7 @@ AC_SUBST([UTF8PROC_CFLAGS])
 AC_SUBST([UTF8PROC_LIBS])
 
 dnl Functions
-AC_CHECK_FUNCS(strchr memmove strerror strtol strcasecmp strncasecmp strverscmp stricmp strnicmp strcasestr strptime asprintf vasprintf memcmp nice setenv unsetenv dup fnmatch mkstemp localtime_r umask execl fork nanosleep usleep)
+AC_CHECK_FUNCS(strchr memmove strerror strtol strcasecmp strncasecmp strverscmp stricmp strnicmp strcasestr strptime asprintf vasprintf memcmp nice setenv unsetenv dup fnmatch mkstemp localtime_r umask execl fork nanosleep usleep access getopt_long)
 AM_CONDITIONAL([NEED_ASPRINTF], [test "x$ac_cv_func_asprintf" = "xno"])
 AM_CONDITIONAL([NEED_VASPRINTF], [test "x$ac_cv_func_vasprintf" = "xno"])
 AM_CONDITIONAL([NEED_MEMCMP], [test "x$ac_cv_func_memcmp" = "xno"])
@@ -225,6 +225,7 @@ AM_CONDITIONAL([NEED_MKSTEMP], [test "x$ac_cv_func_mkstemp" = "xno"])
 AM_CONDITIONAL([NEED_LOCALTIME_R], [test "x$ac_cv_func_localtime_r" = "xno"])
 AM_CONDITIONAL([NEED_SETENV], [test "x$ac_cv_func_setenv" = "xno"])
 AM_CONDITIONAL([NEED_UNSETENV], [test "x$ac_cv_func_unsetenv" = "xno"])
+AM_CONDITIONAL([NEED_GETOPT], [test "x$ac_cv_func_getopt_long" = "xno"])
 
 dnl Headers, typedef crap, et al.
 AC_CHECK_HEADERS(sys/time.h dirent.h limits.h signal.h unistd.h sys/param.h sys/ioctl.h sys/socket.h sys/soundcard.h poll.h sys/poll.h linux/fb.h)
@@ -255,6 +256,7 @@ dnl -----------------------------------------------------------------------
 dnl Platform-specific behavior
 AC_MSG_CHECKING([host platform])
 use_macosx=no
+use_macos=no
 use_win32=no
 use_wii=no
 use_wiiu=no
@@ -272,6 +274,26 @@ case "${host_os}" in
 		use_macosx=yes
 		AC_DEFINE([SCHISM_MACOSX], [1], [Mac OS X])
 		;;
+	macos*)
+		# Retro68 toolchain
+		AC_MSG_RESULT([found Classic Mac OS host])
+
+		use_macos=yes
+		AC_DEFINE([SCHISM_MACOS], [1], [Classic Mac OS])
+
+		EXEEXT=.xcoff
+
+		AC_PATH_PROG([REZ], [Rez])
+		if test "x$REZ" = "x"; then
+			AC_MSG_ERROR([*** Couldn't find Rez])
+		fi
+
+		AC_PATH_PROG([MAKE_PEF], [MakePEF])
+		if test "x$MAKE_PEF" = "x"; then
+			AC_MSG_ERROR([*** Couldn't find MakePEF])
+		fi
+
+		;;
 	cygwin*|mingw*)
 		AC_MSG_RESULT([found Windows host])
 		WIN32_LIBS="-lwinmm"
@@ -284,7 +306,7 @@ case "${host_os}" in
 			AC_SUBST([NETWORK_LIBS], [-lws2_32])
 			use_network=yes
 		else
-			AC_MSG_ERROR([*** Couldn't find winsock\! (how\?)])
+			AC_MSG_ERROR([*** Couldn't find winsock (how)])
 		fi
 
 		have_loadso=yes
@@ -399,13 +421,14 @@ AM_CONDITIONAL([USE_WII], [test "x$use_wii" = "xyes"])
 AM_CONDITIONAL([USE_WIIU], [test "x$use_wiiu" = "xyes"])
 AM_CONDITIONAL([USE_CONTROLLER], [test "x$use_controller" = "xyes"])
 AM_CONDITIONAL([USE_MACOSX], [test "x$use_macosx" = "xyes"])
+AM_CONDITIONAL([USE_MACOS], [test "x$use_macos" = "xyes"])
 AM_CONDITIONAL([am__fastdepOBJC], [test "x$use_macosx" = "xyes"])
 AM_CONDITIONAL([USE_NETWORK], [test "x$use_network" = "xyes"])
 
 dnl ------------------------------------------------------------------------
 
 AC_MSG_CHECKING([for arithmetic right shift])
-AC_COMPILE_IFELSE([[int xxx[((-1 >> 1) == -1) ? 1 : -1];]],
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[int xxx[((-1 >> 1) == -1) ? 1 : -1];]])],
 	[have_arithmetic_rshift=yes],
 	[have_arithmetic_rshift=no])
 AC_MSG_RESULT([$have_arithmetic_rshift])
@@ -415,7 +438,7 @@ fi
 
 # An implementation can technically do whatever it wants here...
 AC_MSG_CHECKING([for sane signed left shift])
-AC_RUN_IFELSE([[int main(void) { return ((-1 << 1) != -2); } ]],
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[]], [[return ((-1 << 1) != -2);]])],
 	[have_sane_signed_lshift=yes],
 	[have_sane_signed_lshift=no],
 	[have_sane_signed_lshift=no]) # assume no

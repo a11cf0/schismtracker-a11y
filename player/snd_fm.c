@@ -130,7 +130,7 @@ void Fmdrv_Init(int32_t mixfreq)
 }
 
 
-void Fmdrv_MixTo(int32_t *target, int32_t count)
+void Fmdrv_MixTo(int32_t *target, uint32_t count)
 {
 	if (!fm_active)
 		return;

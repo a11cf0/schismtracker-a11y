@@ -49,4 +49,8 @@ int str_get_num_lines(const char *text);
 char *str_concat(const char *s, ...);
 int str_realloc(char **output, const char *input, size_t len);
 
+/* convert a C string to a pascal string; truncated can be NULL */
+void str_to_pascal(const char *cstr, unsigned char pstr[256], int *truncated);
+void str_from_pascal(const unsigned char pstr[256], char cstr[256]);
+
 #endif

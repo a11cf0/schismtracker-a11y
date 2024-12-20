@@ -108,7 +108,7 @@
 	position = chan->position_frac; \
 	const int##bits##_t *p = (int##bits##_t *)(chan->current_sample_data + (chan->position * (bits / 8))); \
 	if (chan->flags & CHN_STEREO) p += chan->position; \
-	int *pvol = pbuffer;\
+	int32_t *pvol = pbuffer;\
 	do {
 
 
@@ -657,7 +657,7 @@ static int32_t get_sample_count(song_voice_t *chan, int32_t samples)
 	if (position < 0 || position >= (int32_t)chan->length)
 		return 0;
 
-	int position_frac = (uint16_t)chan->position_frac,
+	int32_t position_frac = (uint16_t) chan->position_frac,
 		 sample_count = samples;
 
 	if (increment < 0) {
@@ -676,7 +676,7 @@ static int32_t get_sample_count(song_voice_t *chan, int32_t samples)
 
 		if (pos_dest < loop_start) {
 			sample_count =
-				(uint32_t) (((((long long) position -
+				(uint32_t) (((((int64_t) position -
 					loop_start) << 16) + position_frac -
 					  1) / inv) + 1;
 		}
@@ -708,9 +708,9 @@ static int32_t get_sample_count(song_voice_t *chan, int32_t samples)
 }
 
 
-uint32_t csf_create_stereo_mix(song_t *csf, int32_t count)
+uint32_t csf_create_stereo_mix(song_t *csf, uint32_t count)
 {
-	int* ofsl, *ofsr;
+	int32_t* ofsl, *ofsr;
 	unsigned int nchused, nchmixed;
 
 	if (!count)
@@ -723,7 +723,7 @@ uint32_t csf_create_stereo_mix(song_t *csf, int32_t count)
 		for (uint32_t nchan = 0; nchan < MAX_CHANNELS; nchan++)
 			memset(csf->multi_write[nchan].buffer, 0, sizeof(csf->multi_write[nchan].buffer));
 
-	for (unsigned int nchan = 0; nchan < csf->num_voices; nchan++) {
+	for (uint32_t nchan = 0; nchan < csf->num_voices; nchan++) {
 		const mix_interface_t *mix_func_table;
 		song_voice_t *const channel = &csf->voices[csf->voice_mix[nchan]];
 		uint32_t flags;

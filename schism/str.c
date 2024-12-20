@@ -406,6 +406,28 @@ char *str_concat(const char *s, ...)
 	return out;
 }
 
+/* --------------------------------------------------------------------- */
+/* Functions for working with Pascal strings. */
+
+void str_to_pascal(const char *cstr, unsigned char pstr[256], int *truncated)
+{
+	const size_t len = strlen(cstr);
+
+	if (truncated)
+		*truncated = (len > 255);
+
+	pstr[0] = MIN(len, 255);
+	memcpy(&pstr[1], cstr, pstr[0]);
+}
+
+void str_from_pascal(const unsigned char pstr[256], char cstr[256])
+{
+	memcpy(cstr, pstr + 1, pstr[0]);
+	cstr[pstr[0]] = 0;
+}
+
+/* --------------------------------------------------------------------- */
+
 /* if len is zero, this function calls strlen to get the input's
  * length.
  *
