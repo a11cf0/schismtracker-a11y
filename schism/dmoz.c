@@ -665,11 +665,6 @@ int dmoz_path_rename(const char *old, const char *new, int overwrite)
 	}
 
 	err = FSMakeFSSpec(0, 0, pnew, &new_spec);
-	if (err != noErr && (!overwrite || err != fnfErr)) {
-		log_appendf(4, "FSMakeFSSpec: %d", (int)err);
-		return -1;
-	}
-
 	if (err == fnfErr) {
 		// Create the output file
 		err = FSpCreate(&new_spec, '?\??\?', 'TEXT', smSystemScript);
@@ -679,6 +674,16 @@ int dmoz_path_rename(const char *old, const char *new, int overwrite)
 		}
 
 		FSpCreateResFile(&new_spec, '?\??\?', 'TEXT', smSystemScript);
+		err = ResError();
+		if (err != noErr) {
+			log_appendf(4, "FSpCreateResFile: %d\n", (int)err);
+			return -1;
+		}
+	} else if (overwrite && err == noErr) {
+		// do nothing, exchange the contents and delete
+	} else {
+		log_appendf(4, "FSMakeFSSpec: %d", (int)err);
+		return -1;
 	}
 
 	// Exchange the data in the two files
