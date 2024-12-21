@@ -76,15 +76,56 @@ static void _dw_stdio_write(disko_t *ds, const void *buf, size_t len)
 		disko_seterror(ds, errno);
 }
 
-static void _dw_stdio_seek(disko_t *ds, long pos, int whence)
+static void _dw_stdio_seek(disko_t *ds, int64_t pos, int whence)
 {
+#ifdef HAVE_NONPOSIX_FSEEK
+	// fseek() broken under Retro68. this is "close enough"
+	// to the POSIX behavior, I guess
+
+	long start = ftell(ds->file);
+	if (fseek(ds->file, 0, SEEK_END) < 0) {
+		disko_seterror(ds, errno);
+		return;
+	}
+	long end = ftell(ds->file);
+	//seek back to where we started
+	if (fseek(ds->file, start, SEEK_SET) < 0) {
+		disko_seterror(ds, errno);
+		return;
+	}
+
+	switch (whence) {
+	default:
+	case SEEK_SET:
+		break;
+	case SEEK_CUR:
+		pos += start;
+		break;
+	case SEEK_END:
+		pos += end;
+		break;
+	}
+
+	if (fseek(ds->file, MIN(pos, end), SEEK_SET) < 0) {
+		disko_seterror(ds, errno);
+		return;
+	}
+	while (end++ < pos) {
+		if (fputc('\0', ds->file) != EOF)
+			continue;
+
+		disko_seterror(ds, errno);
+		return;
+	}
+#else
 	if (fseek(ds->file, pos, whence) < 0)
 		disko_seterror(ds, errno);
+#endif
 }
 
-static long _dw_stdio_tell(disko_t *ds)
+static int64_t _dw_stdio_tell(disko_t *ds)
 {
-	long pos = ftell(ds->file);
+	int64_t pos = ftell(ds->file);
 	if (pos < 0)
 		disko_seterror(ds, errno);
 	return pos;
@@ -126,7 +167,7 @@ static void _dw_mem_write(disko_t *ds, const void *buf, size_t len)
 	}
 }
 
-static void _dw_mem_seek(disko_t *ds, long offset, int whence)
+static void _dw_mem_seek(disko_t *ds, int64_t offset, int whence)
 {
 	// mostly from slurp_seek
 	switch (whence) {
@@ -153,9 +194,9 @@ static void _dw_mem_seek(disko_t *ds, long offset, int whence)
 	ds->pos = offset;
 }
 
-static long _dw_mem_tell(disko_t *ds)
+static int64_t _dw_mem_tell(disko_t *ds)
 {
-	return (long) ds->pos;
+	return (int64_t)ds->pos;
 }
 
 // ---------------------------------------------------------------------------
@@ -171,25 +212,31 @@ void disko_putc(disko_t *ds, unsigned char c)
 	disko_write(ds, &c, sizeof(c));
 }
 
-void disko_seek(disko_t *ds, long pos, int whence)
+void disko_seek(disko_t *ds, int64_t pos, int whence)
 {
 	if (!ds->error)
 		ds->_seek(ds, pos, whence);
 }
 
 /* used by multi-write */
-static void disko_seekcur(disko_t *ds, long pos)
+static void disko_seekcur(disko_t *ds, int64_t pos)
 {
 	disko_seek(ds, pos, SEEK_CUR);
 }
 
-long disko_tell(disko_t *ds)
+int64_t disko_tell(disko_t *ds)
 {
 	if (!ds->error)
 		return ds->_tell(ds);
 	return -1;
 }
 
+// align on a byte boundary of size `bytes'
+void disko_align(disko_t *ds, uint32_t bytes)
+{
+	int64_t pos = disko_tell(ds);
+	disko_seek(ds, (bytes - (pos % bytes)) % bytes, SEEK_CUR);
+}
 
 void disko_seterror(disko_t *ds, int err)
 {
@@ -201,7 +248,6 @@ void disko_seterror(disko_t *ds, int err)
 
 int disko_open(disko_t *ds, const char *filename)
 {
-	int fd;
 	int err;
 
 	if (!filename)
@@ -218,25 +264,15 @@ int disko_open(disko_t *ds, const char *filename)
 
 	*ds = (disko_t){0};
 
+	ds->filename = str_dup(filename);
+
 	if (asprintf(&ds->tempname, "%sXXXXXX", filename) < 0)
 		return -1;
 
-	ds->filename = str_dup(filename);
-
-	fd = mkstemp(ds->tempname);
-	if (fd == -1) {
-		free(ds->tempname);
-		free(ds->filename);
-		return -1;
-	}
-	ds->file = fdopen(fd, "wb");
+	ds->file = mkfstemp(ds->tempname);
 	if (!ds->file) {
-		err = errno;
-		close(fd);
-		unlink(ds->tempname);
 		free(ds->tempname);
 		free(ds->filename);
-		errno = err;
 		return -1;
 	}
 
@@ -261,35 +297,18 @@ int disko_close(disko_t *ds, int backup)
 	if (fclose(ds->file) == EOF && !err) {
 		err = errno;
 	} else if (!err) {
-		// preserve file mode, or set it sanely -- mkstemp() sets file mode to 0600.
-		// some operating systems (see: Wii, Wii U) don't have umask, so we can't do
-		// this. boohoo, whatever
-#if HAVE_UMASK
-		struct stat st;
-		if (os_stat(ds->filename, &st) < 0) {
-			/* Probably didn't exist already, let's make something up.
-			0777 is "safer" than 0, so we don't end up throwing around world-writable
-			files in case something weird happens.
-			See also: man 3 getumask */
-			mode_t m = umask(0777);
-			umask(m);
-			st.st_mode = 0666 & ~m;
-		}
-#endif
-		if (backup) {
-			// back up the old file
+		// back up the old file
+		if (backup)
 			dmoz_path_make_backup(ds->filename, (backup != 1));
-		}
-		if (dmoz_path_rename(ds->tempname, ds->filename, 1) != 0) {
+
+		if (dmoz_path_rename(ds->tempname, ds->filename, 1) < 0)
 			err = errno;
-		} else {
-#if HAVE_UMASK
-			// Fix the permissions on the file
-			chmod(ds->filename, st.st_mode);
-#endif
-		}
 	}
 	// If anything failed so far, kill off the temp file
+	//
+	// FIXME we need a dmoz_path_remove, because unlink()
+	// is a stub on mac os, and windows will interpret
+	// the path as ANSI instead of unicode
 	if (err)
 		unlink(ds->tempname);
 

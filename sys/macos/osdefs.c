@@ -32,6 +32,7 @@
 #include "dmoz.h"
 #include "errno.h"
 #include "dmoz.h"
+#include "charset.h"
 
 #include <Files.h>
 #include <Folders.h>
@@ -41,11 +42,36 @@
 
 /* ------------------------------------------------------------------------ */
 
+void macos_get_modkey(schism_keymod_t *mk)
+{
+	// SDL 1.2 treats Command as Control, so switch the values.
+	schism_keymod_t mk_ = (*mk) & ~(SCHISM_KEYMOD_CTRL|SCHISM_KEYMOD_GUI);
+
+	if (*mk & SCHISM_KEYMOD_LCTRL)
+		mk_ |= SCHISM_KEYMOD_LGUI;
+
+	if (*mk & SCHISM_KEYMOD_RCTRL)
+		mk_ |= SCHISM_KEYMOD_RGUI;
+
+	if (*mk & SCHISM_KEYMOD_LGUI)
+		mk_ |= SCHISM_KEYMOD_LCTRL;
+
+	if (*mk & SCHISM_KEYMOD_RGUI)
+		mk_ |= SCHISM_KEYMOD_RCTRL;
+
+	*mk = mk_;
+}
+
+/* ------------------------------------------------------------------------ */
+
 void macos_show_message_box(const char *title, const char *text)
 {
+	// This converts the message to the HFS character set, which
+	// isn't necessarily the system character set, but whatever
 	unsigned char err[256], explanation[256];
 	int16_t hit;
 
+	// These message boxes should really only be taking in ASCII anyway
 	str_to_pascal(title, err, NULL);
 	str_to_pascal(text, explanation, NULL);
 
@@ -65,14 +91,13 @@ int macos_mkdir(const char *path, SCHISM_UNUSED mode_t mode)
 
 		// Fix the path, then convert it to a pascal string
 		char *normal = dmoz_path_normal(path);
-
 		str_to_pascal(normal, mpath, &truncated);
+		free(normal);
+		
 		if (truncated) {
 			errno = ENAMETOOLONG;
 			return -1;
 		}
-
-		free(normal);
 	}
 
 	// Append a separator on the end if one isn't there already; I don't
@@ -88,19 +113,64 @@ int macos_mkdir(const char *path, SCHISM_UNUSED mode_t mode)
 
 	pb.fileParam.ioNamePtr = mpath;
 
-	return (PBDirCreateSync(&pb) == noErr) ? 0 : -1;
+	OSErr err = PBDirCreateSync(&pb);
+	switch (err) {
+	case noErr:
+		return 0;
+	case nsvErr:
+	case fnfErr:
+	case dirNFErr:
+		errno = ENOTDIR;
+		return -1;
+	case dirFulErr:
+	case dskFulErr:
+		errno = ENOSPC;
+		return -1;
+	case bdNamErr:
+		errno = EILSEQ;
+		return -1;
+	case ioErr:
+	case wrgVolTypErr: //FIXME find a more appropriate errno value for this
+		errno = EIO;
+		return -1;
+	case wPrErr:
+	case vLckdErr:
+		errno = EROFS;
+		return -1;
+	case afpAccessDenied:
+		errno = EACCES;
+		return -1;
+	default:
+		return -1;
+	}
 }
 
 int macos_stat(const char *file, struct stat *st)
 {
 	CInfoPBRec pb = {0};
-	unsigned char path[256];
+	unsigned char ppath[256];
 
-	int truncated;
-	str_to_pascal(file, path, &truncated);
-	if (truncated) {
-		errno = ENAMETOOLONG;
-		return -1;
+	{
+		int truncated;
+
+		char *normal = dmoz_path_normal(file);
+		str_to_pascal(normal, ppath, &truncated);
+		free(normal);
+
+		if (truncated) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+	}
+
+	// If our path is just a volume name, PBGetCatInfoSync will
+	// fail, so append a path separator on the end in this case.
+	if (!memchr(ppath + 1, ':', ppath[0])) {
+		if (ppath[0] >= 255) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		ppath[++ppath[0]] = ':';
 	}
 
 	if (!strcmp(file, ".")) {
@@ -109,25 +179,49 @@ int macos_stat(const char *file, struct stat *st)
 			.st_ino = -1,
 		};
 	} else {		
-		pb.hFileInfo.ioNamePtr = path;
+		pb.hFileInfo.ioNamePtr = ppath;
 
 		OSErr err = PBGetCatInfoSync(&pb);
-		if (err != noErr) {
-			log_appendf(4, "macos_stat: %s returned %d\n", file, (int)err);
-			return -1;
-		} else {
+		switch (err) {
+		case noErr:
 			*st = (struct stat){
 				.st_mode = (pb.hFileInfo.ioFlAttrib & ioDirMask) ? S_IFDIR : S_IFREG,
 				.st_ino = pb.hFileInfo.ioFlStBlk,
 				.st_dev = pb.hFileInfo.ioVRefNum,
 				.st_nlink = 1,
 				.st_size = pb.hFileInfo.ioFlLgLen,
-				.st_atime = pb.hFileInfo.ioFlMdDat,
-				.st_mtime = pb.hFileInfo.ioFlMdDat,
-				.st_ctime = pb.hFileInfo.ioFlCrDat,
+// This assumes that time_t is POSIX-y (i.e. we're under Retro68, or some other
+// toolchain that does this). It also assumes the date is in UTC, which is what
+// Mac OS Extended uses; Mac OS Standard uses good old local time, but I don't
+// really care about that.
+#define CONVERT_TIME_TO_POSIX(x) ((int64_t)(x) - INT64_C(2082844800))
+				.st_atime = CONVERT_TIME_TO_POSIX(pb.hFileInfo.ioFlMdDat),
+				.st_mtime = CONVERT_TIME_TO_POSIX(pb.hFileInfo.ioFlMdDat),
+				.st_ctime = CONVERT_TIME_TO_POSIX(pb.hFileInfo.ioFlCrDat),
+#undef CONVERT_TIME_TO_POSIX
 			};
 
 			return 0;
+		case nsvErr:
+		case fnfErr:
+			errno = ENOENT;
+			return -1;
+		case bdNamErr:
+		case paramErr:
+			errno = EILSEQ;
+			return -1;
+		case ioErr:
+			errno = EIO;
+			return -1;
+		case afpAccessDenied:
+			errno = EACCES;
+			return -1;
+		case dirNFErr:
+		case afpObjectTypeErr:
+			errno = ENOTDIR;
+			return -1;
+		default:
+			return -1;
 		}
 	}
 
@@ -187,6 +281,7 @@ static int CommandKeyIsDown(void)
 
 	GetKeys(theKeyMap);
 
+	// 
 	if (((unsigned char *)theKeyMap)[6] & 0x80)
 		return 1;
 	return 0;
@@ -488,6 +583,7 @@ void macos_sysinit(int *pargc, char ***pargv)
 	InitMenus   ();
 	InitDialogs (nil);
 	InitCursor ();
+	InitContextualMenus();
 	FlushEvents(everyEvent,0);
 	MaxApplZone ();
 	MoreMasters ();

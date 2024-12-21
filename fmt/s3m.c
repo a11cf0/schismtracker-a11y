@@ -106,7 +106,8 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 	uint16_t flags;
 	uint16_t special;
 	uint8_t reserved[8];
-	uint16_t reserved16;
+	uint16_t reserved16low; // low 16 bits of version info
+	uint16_t reserved16high; // high 16 bits of version info
 	uint32_t reserved32; // Impulse Tracker edit time
 	uint32_t adlib = 0; // bitset
 	uint16_t gus_addresses = 0;
@@ -175,10 +176,12 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 		misc &= ~S3M_CHANPAN;     /* stored pan values */
 
 	slurp_read(fp, &reserved, 8);
-	memcpy(&reserved16, reserved, 2);
+	memcpy(&reserved16low, reserved, 2);
 	memcpy(&reserved32, reserved + 2, 4);
-	reserved16 = bswapLE16(reserved16); // schism & openmpt version info
+	memcpy(&reserved16high, reserved + 6, 2);
+	reserved16low = bswapLE16(reserved16low); // schism & openmpt version info
 	reserved32 = bswapLE32(reserved32); // impulse tracker edit timer
+	reserved16high = bswapLE16(reserved16high); // high bits of schism version info
 	slurp_read(fp, &special, 2); // field not used by st3
 	special = bswapLE16(special);
 
@@ -520,9 +523,10 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 			if (trkvers == 0x4100) {
 				strcpy(song->tracker_id, "BeRoTracker");
 			} else {
+				uint32_t full_version = (((uint32_t)reserved16high) << 16) | (reserved16low);
 				strcpy(song->tracker_id, "Schism Tracker ");
-				ver_decode_cwtv(trkvers, reserved16, song->tracker_id + strlen(song->tracker_id));
-				if (trkvers == 0x4fff && reserved16 >= 0x1560)
+				ver_decode_cwtv(trkvers, full_version, song->tracker_id + strlen(song->tracker_id));
+				if (trkvers == 0x4fff && full_version >= 0x1560)
 					s3m_import_edittime(song, 0x0000, reserved32);
 			}
 			break;
@@ -535,13 +539,13 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 			 * So we assume that a file was saved with Liquid Tracker if the reserved fields are 0 and ultraClicks is 16. */
 			if ((trkvers >> 8) == 0x57) {
 				tid = "NESMusa %" PRIu8 ".%" PRIX8; /* tool by Bisquit */
-			} else if (!reserved16 && uc == 16 && channel_types[1] != 1) {
+			} else if (!reserved16low && uc == 16 && channel_types[1] != 1) {
 				tid = "Liquid Tracker %" PRIu8 ".%" PRIX8;
 			} else if (trkvers == 0x5447) {
 				strcpy(song->tracker_id, "Graoumf Tracker");
-			} else if (trkvers >= 0x5129 && reserved16) {
+			} else if (trkvers >= 0x5129 && reserved16low) {
 				/* e.x. 1.29.01.12 <-> 0x1290112 */
-				const uint32_t ver = (((trkvers & 0xfff) << 16) | reserved16);
+				const uint32_t ver = (((trkvers & 0xfff) << 16) | reserved16low);
 				sprintf(song->tracker_id, "OpenMPT %" PRIu32 ".%02" PRIX32 ".%02" PRIX32 ".%02" PRIX32, ver >> 24, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF, (ver) & 0xFF);
 				if (ver >= UINT32_C(0x01320031))
 					s3m_import_edittime(song, 0x0000, reserved32);
@@ -633,9 +637,8 @@ struct s3m_header {
 	uint8_t gv, is, it, mv, uc, dp; // gv is half range of IT, uc should be 8/12/16, dp is 252
 	uint16_t reserved; // extended version information is stored here
 	uint32_t reserved2; // Impulse Tracker hides its edit timer here
+	uint16_t reserved3; // high bits of extended version information
 };
-
-#define SEEK_ALIGN(fp) disko_seek((fp), (16 - (disko_tell(fp) & 15)) & 15, SEEK_CUR)
 
 static int write_s3m_header(const struct s3m_header *hdr, disko_t *fp)
 {
@@ -660,8 +663,8 @@ static int write_s3m_header(const struct s3m_header *hdr, disko_t *fp)
 	WRITE_VALUE(dp);
 	WRITE_VALUE(reserved);
 	WRITE_VALUE(reserved2);
-	disko_seek(fp, 2, SEEK_CUR); // "special"
-	disko_seek(fp, 2, SEEK_CUR); // no idea what this is
+	WRITE_VALUE(reserved3);
+	disko_seek(fp, 2, SEEK_CUR);
 
 #undef WRITE_VALUE
 
@@ -670,12 +673,12 @@ static int write_s3m_header(const struct s3m_header *hdr, disko_t *fp)
 
 static int write_s3m_pattern(disko_t *fp, song_t *song, int pat, uint8_t *chantypes, uint16_t *para_pat)
 {
-	long start, end;
+	int64_t start, end;
 	uint8_t b, type;
 	uint16_t w;
 	int row, rows, chan;
 	song_note_t out, *note;
-	int warn = 0;
+	uint32_t warn = 0;
 
 	if (csf_pattern_is_empty(song, pat)) {
 		// easy!
@@ -688,7 +691,7 @@ static int write_s3m_pattern(disko_t *fp, song_t *song, int pat, uint8_t *chanty
 	}
 	rows = MIN(64, song->pattern_size[pat]);
 
-	SEEK_ALIGN(fp);
+	disko_align(fp, 16);
 
 	start = disko_tell(fp);
 	para_pat[pat] = bswapLE16(start >> 4);
@@ -936,16 +939,16 @@ int fmt_s3m_save_song(disko_t *fp, song_t *song)
 {
 	struct s3m_header hdr = {0};
 	int nord, nsmp, npat;
-	int n;
+	int n, i;
 	song_sample_t *smp;
-	long smphead_pos; /* where to write the sample headers */
-	long patptr_pos; /* where to write pattern pointers */
-	long pos; /* temp */
+	int64_t smphead_pos; /* where to write the sample headers */
+	int64_t patptr_pos; /* where to write pattern pointers */
+	int64_t pos; /* temp */
 	uint16_t w;
 	uint16_t para_pat[MAX_PATTERNS];
 	uint32_t para_sdata[MAX_SAMPLES];
 	uint8_t chantypes[32];
-	unsigned int warn = 0;
+	uint32_t warn = 0;
 
 
 	if (song->flags & SONG_INSTRUMENTMODE)
@@ -1013,6 +1016,7 @@ int fmt_s3m_save_song(disko_t *fp, song_t *song)
 	hdr.uc = 16; // ultraclick (the "Waste GUS channels" option)
 	hdr.dp = 252;
 	hdr.reserved = bswapLE16(ver_reserved);
+	hdr.reserved3 = bswapLE16(ver_reserved >> 16);
 
 	/* Save the edit time in the reserved header, where
 	 * Impulse Tracker also conveniently stores it */
@@ -1081,7 +1085,7 @@ int fmt_s3m_save_song(disko_t *fp, song_t *song)
 			para_sdata[n] = 0;
 			continue;
 		}
-		SEEK_ALIGN(fp);
+		disko_align(fp, 16);
 		para_sdata[n] = disko_tell(fp);
 		csf_write_sample(fp, smp, SF_LE | SF_PCMU
 			| ((smp->flags & CHN_16BIT) ? SF_16 : SF_8)
