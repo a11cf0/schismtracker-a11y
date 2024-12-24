@@ -230,7 +230,7 @@ static int name_is_blank(char *name)
 	return 1;
 }
 
-const song_note_t blank_pattern[64 * 64];
+const song_note_t blank_pattern[64 * 64] = {0};
 const song_note_t *blank_note = blank_pattern; // Same thing, really.
 
 int csf_note_is_empty(song_note_t *note)
@@ -407,7 +407,7 @@ int csf_get_highest_used_channel(song_t *csf)
 //////////////////////////////////////////////////////////////////////////
 // Misc functions
 
-midi_config_t default_midi_config;
+midi_config_t default_midi_config = {0};
 
 
 void csf_reset_midi_cfg(song_t *csf)

@@ -4722,7 +4722,7 @@ static int pattern_editor_handle_key_cb(struct key_event * k)
 	if (k->mod & SCHISM_KEYMOD_SHIFT)
 		shift_selection_update();
 
-	if (play_row_when_navigating && current_channel == prev_chan && !a11y_pated_insert_event)
+	if (play_row_when_navigating && current_row != prev_row && current_channel == prev_chan && !a11y_pated_insert_event)
 		song_single_step(current_pattern, current_row);
 	if (current_row == prev_row && current_channel == prev_chan && current_position != prev_pos) {
 		int a11y_col = a11y_get_column_number();
