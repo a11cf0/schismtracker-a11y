@@ -203,15 +203,12 @@ jobs:
           cp "$HOME/prefix/bin/libFLAC-12.dll" .
           cp "$HOME/prefix/bin/libogg-0.dll" .
           cp "$HOME/prefix/bin/libSRAL.dll" .
-          ls $HOME/prefix/bin
-          cp "$HOME/prefix/bin/libutf8proc-3.dll" .
           cp $HOME/llvm-mingw/$TARGET-w64-$SYS/bin/*.dll .
           [ -f $HOME/prefix/bin/nvdaControllerClient.dll ] && cp $HOME/prefix/bin/nvdaControllerClient.dll .
           "$TARGET-w64-$SYS-strip" -g "SDL2.dll"
           "$TARGET-w64-$SYS-strip" -g "libFLAC-12.dll"
           "$TARGET-w64-$SYS-strip" -g "libogg-0.dll"
           "$TARGET-w64-$SYS-strip" -g "libSRAL.dll"
-          "$TARGET-w64-$SYS-strip" -g "libutf8proc-3.dll"
           cp schism/docs/accessibility.md schism/docs/configuration.md schism/README.md schism/COPYING .
           wget https://raw.githubusercontent.com/xiph/flac/master/COPYING.Xiph
           unix2dos COPYING.Xiph COPYING README.md configuration.md accessibility.md
@@ -227,7 +224,6 @@ jobs:
             libFLAC-12.dll
             libogg-0.dll
             libSRAL.dll
-            libutf8proc-3.dll
             nvdaControllerClient.dll
             COPYING
             COPYING.Xiph
