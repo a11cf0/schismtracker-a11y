@@ -203,6 +203,7 @@ jobs:
           cp "$HOME/prefix/bin/libFLAC-12.dll" .
           cp "$HOME/prefix/bin/libogg-0.dll" .
           cp "$HOME/prefix/bin/libSRAL.dll" .
+          ls $HOME/prefix/bin
           cp "$HOME/prefix/bin/libutf8proc-3.dll" .
           cp $HOME/llvm-mingw/$TARGET-w64-$SYS/bin/*.dll .
           [ -f $HOME/prefix/bin/nvdaControllerClient.dll ] && cp $HOME/prefix/bin/nvdaControllerClient.dll .
