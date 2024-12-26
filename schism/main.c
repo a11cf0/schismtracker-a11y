@@ -51,6 +51,7 @@
 #include "fmt.h"
 #include "timer.h"
 #include "threads.h"
+#include "mem.h"
 
 #include "osdefs.h"
 
@@ -859,6 +860,8 @@ void schism_exit(int status)
 	song_lock_audio();
 	song_stop_unlocked(1);
 	song_unlock_audio();
+
+	midi_engine_stop();
 
 	dmoz_quit();
 	audio_quit();

@@ -38,6 +38,7 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "osdefs.h"
+#include "str.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

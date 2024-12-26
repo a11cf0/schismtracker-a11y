@@ -30,6 +30,8 @@
 #include "keyboard.h"
 #include "song.h"
 #include "accessibility.h"
+#include "mem.h"
+#include "str.h"
 
 #include <stdarg.h>
 #include <stddef.h>

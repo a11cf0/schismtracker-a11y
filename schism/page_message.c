@@ -41,6 +41,7 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "charset.h"
+#include "str.h"
 
 #include <ctype.h>
 #include <assert.h>

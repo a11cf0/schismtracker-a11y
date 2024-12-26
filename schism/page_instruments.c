@@ -38,6 +38,8 @@
 #include "accessibility.h"
 #include "charset.h"
 #include "osdefs.h"
+#include "mem.h"
+#include "str.h"
 
 #include <sys/stat.h>
 

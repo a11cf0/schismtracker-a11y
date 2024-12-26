@@ -33,6 +33,7 @@
 #include "widget.h"
 #include "vgamem.h"
 #include "accessibility.h"
+#include "mem.h"
 
 #include "disko.h"
 

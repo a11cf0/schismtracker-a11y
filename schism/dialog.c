@@ -31,6 +31,7 @@
 #include "page.h"
 #include "accessibility.h"
 #include "keyboard.h"
+#include "mem.h"
 
 #include <ctype.h>
 

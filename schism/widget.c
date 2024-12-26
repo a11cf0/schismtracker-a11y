@@ -28,6 +28,7 @@
 #include "widget.h"
 #include "vgamem.h"
 #include "accessibility.h"
+#include "str.h"
 
 #include <math.h>
 

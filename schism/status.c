@@ -31,6 +31,8 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "timer.h"
+#include "mem.h"
+#include "str.h"
 
 #include "player/sndfile.h"
 

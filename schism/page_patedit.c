@@ -42,6 +42,8 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "keyboard.h"
+#include "str.h"
+#include "mem.h"
 
 #include "clippy.h"
 #include "disko.h"

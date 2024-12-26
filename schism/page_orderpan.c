@@ -30,6 +30,7 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "keyboard.h"
+#include "str.h"
 
 /* --------------------------------------------------------------------- */
 

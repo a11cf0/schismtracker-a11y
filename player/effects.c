@@ -28,6 +28,7 @@
 #include "player/snd_gm.h"
 #include "player/tables.h"
 
+#include "midi.h" /* midi_event_length */
 #include "util.h" /* for clamp/min */
 
 #include <math.h>
@@ -774,7 +775,6 @@ static void fx_special(song_t *csf, uint32_t nchan, uint32_t param)
 	}
 }
 
-
 // Send exactly one MIDI message
 void csf_midi_send(song_t *csf, const unsigned char *data, uint32_t len, uint32_t nchan, int fake)
 {
@@ -818,34 +818,6 @@ void csf_midi_send(song_t *csf, const unsigned char *data, uint32_t len, uint32_
 		csf_midi_out_raw(data, len, csf->buffer_count);
 	}
 }
-
-
-// Get the length of a MIDI event in bytes
-static uint8_t midi_event_length(uint8_t first_byte)
-{
-	switch(first_byte & 0xF0)
-	{
-	case 0xC0:
-	case 0xD0:
-		return 2;
-	case 0xF0:
-		switch(first_byte)
-		{
-		case 0xF1:
-		case 0xF3:
-			return 2;
-		case 0xF2:
-			return 3;
-		default:
-			return 1;
-		}
-		break;
-	default:
-		return 3;
-	}
-}
-
-
 
 void csf_process_midi_macro(song_t *csf, uint32_t nchan, const char * macro, uint32_t param,
 			uint32_t note, uint32_t velocity, uint32_t use_instr)
@@ -906,9 +878,9 @@ void csf_process_midi_macro(song_t *csf, uint32_t nchan, const char * macro, uin
 			}
 			case 'u': {
 				/* Volume */
-				/* this will definitely be wrong when processing MIDI out */
-				if (!(chan->flags & CHN_MUTE))
-					data = (unsigned char)CLAMP(chan->final_volume >> 7, 0x01, 0x7F);
+				const int32_t vol = _muldiv(chan->calc_volume * csf->current_global_volume, chan->global_volume * chan->instrument_volume, INT32_C(1) << 26);
+				//printf("%d\n", vol);
+				data = (unsigned char)CLAMP(vol / 2, 0x01, 0x7F);
 				break;
 			}
 			case 'x':
@@ -1966,10 +1938,10 @@ static void handle_effect(song_t *csf, uint32_t nchan, uint32_t cmd, uint32_t pa
 		 *
 		 * OpenMPT also doesn't entirely support IT's version of this macro, which is
 		 * just another demotivator for actually implementing it correctly *sigh* */
-		const uint32_t vel =
-		!chan->ptr_sample ? 0 : _muldiv(chan->volume * csf->current_global_volume * chan->global_volume,
-			chan->ptr_sample->global_volume * 2,
-			1 << 21);
+
+		const uint32_t vel = chan->ptr_sample ?
+			_muldiv((chan->volume + chan->vol_swing) * csf->current_global_volume, chan->global_volume * chan->instrument_volume, INT32_C(1) << 20)
+			: 0;
 
 		csf_process_midi_macro(csf, nchan,
 			(param < 0x80) ? csf->midi_config.sfx[chan->active_macro] : csf->midi_config.zxx[param & 0x7F],

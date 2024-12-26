@@ -28,6 +28,7 @@
 
 #include "util.h"
 #include "timer.h"
+#include "mem.h"
 
 #include <jack/jack.h>
 #include <jack/midiport.h>
@@ -282,7 +283,7 @@ static int _jack_thread(struct midi_provider *p)
 			}
 		}
 
-		timer_msleep(1);
+		timer_msleep(10);
 	}
 
 	return 0;

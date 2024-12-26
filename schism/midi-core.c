@@ -34,6 +34,7 @@
 #include "config.h"
 #include "threads.h"
 #include "timer.h"
+#include "mem.h"
 
 #include "dmoz.h"
 
@@ -320,20 +321,17 @@ void midi_engine_reset(void)
 
 void midi_engine_stop(void)
 {
-	struct midi_provider *n, *p;
+	struct midi_provider *n;
 	struct midi_port *q;
 
 	if (!_connected) return;
 	if (!midi_mutex) return;
 
 	mt_mutex_lock(midi_mutex);
-	for (n = port_providers; n;) {
-		p = n->next;
-
+	for (n = port_providers; n; n = n->next) {
 		q = NULL;
-		while (midi_port_foreach(p, &q)) {
+		while (midi_port_foreach(n, &q))
 			midi_port_unregister(q->num);
-		}
 
 		if (n->thread) {
 			n->cancelled = 1;
@@ -341,7 +339,6 @@ void midi_engine_stop(void)
 		}
 		free(n->name);
 		free(n);
-		n = p;
 	}
 	_connected = 0;
 	mt_mutex_unlock(midi_mutex);
@@ -780,6 +777,31 @@ void midi_send_buffer(const unsigned char *data, unsigned int len, unsigned int 
 	}
 
 	mt_mutex_unlock(midi_record_mutex);
+}
+
+// Get the length of a MIDI event in bytes
+uint8_t midi_event_length(uint8_t first_byte)
+{
+	switch(first_byte & 0xF0)
+	{
+	case 0xC0:
+	case 0xD0:
+		return 2;
+	case 0xF0:
+		switch(first_byte)
+		{
+		case 0xF1:
+		case 0xF3:
+			return 2;
+		case 0xF2:
+			return 3;
+		default:
+			return 1;
+		}
+		break;
+	default:
+		return 3;
+	}
 }
 
 /*----------------------------------------------------------------------------------*/

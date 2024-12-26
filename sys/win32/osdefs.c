@@ -31,6 +31,7 @@
 #include "fmt.h"
 #include "charset.h"
 #include "loadso.h"
+#include "mem.h"
 
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -71,10 +72,6 @@
 #define IDM_SETTINGS_PALETTE_EDITOR 603
 #define IDM_SETTINGS_FONT_EDITOR 604
 #define IDM_SETTINGS_SYSTEM_CONFIGURATION 605
-
-// slurp-win32.c
-int win32_slurp_init(void);
-void win32_slurp_quit(void);
 
 /* global menu object */
 static HMENU menu = NULL;
@@ -192,8 +189,6 @@ void win32_sysinit(SCHISM_UNUSED int *pargc, SCHISM_UNUSED char ***pargv)
 #ifdef USE_MEDIAFOUNDATION
 	win32mf_init();
 #endif
-
-	win32_slurp_init();
 }
 
 void win32_sysexit(void)
@@ -201,8 +196,6 @@ void win32_sysexit(void)
 #ifdef USE_MEDIAFOUNDATION
 	win32mf_quit();
 #endif
-	
-	win32_slurp_quit();
 }
 
 int win32_event(schism_event_t *event)

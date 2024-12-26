@@ -33,6 +33,8 @@
 #include "accessibility.h"
 #include "charset.h"
 #include "keyboard.h"
+#include "mem.h"
+#include "str.h"
 
 /* --------------------------------------------------------------------- */
 

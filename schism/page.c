@@ -39,6 +39,8 @@
 #include "dialog.h"
 #include "widget.h"
 #include "accessibility.h"
+#include "mem.h"
+#include "str.h"
 
 #include <assert.h>
 #include <math.h>
@@ -1231,19 +1233,17 @@ void handle_key(struct key_event *k)
 		}
 		break;
 	case SCHISM_KEYSYM_SLASH:
-	case SCHISM_KEYSYM_KP_DIVIDE:
 		if (k->state == KEY_RELEASE) return;
 		if (status.flags & DISKWRITER_ACTIVE) return;
 		kbd_set_current_octave(kbd_get_current_octave() - 1);
 		a11y_outputf("Octave %u", 1, kbd_get_current_octave());
-		return;
+		break;
 	case SCHISM_KEYSYM_ASTERISK:
-	case SCHISM_KEYSYM_KP_MULTIPLY:
 		if (k->state == KEY_RELEASE) return;
 		if (status.flags & DISKWRITER_ACTIVE) return;
 		kbd_set_current_octave(kbd_get_current_octave() + 1);
 		a11y_outputf("Octave %u", 1, kbd_get_current_octave());
-		return;
+		break;
 	case SCHISM_KEYSYM_LEFTBRACKET:
 		if (k->state == KEY_RELEASE) break;
 		if (status.flags & DISKWRITER_ACTIVE) return;

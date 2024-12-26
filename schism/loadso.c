@@ -89,7 +89,7 @@ void *loadso_function_load(void *handle, const char *name)
 	if (asprintf(&p, "_%s", name) < 0)
 		return NULL;
 
-	symbol = dlsym(handle, name);
+	symbol = dlsym(handle, p);
 	if (symbol)
 		return symbol;
 #endif
@@ -166,9 +166,9 @@ static const char *loadso_lib_fmts[] = {
 	"lib%s.dll",
 	"%s.dll",
 #elif defined(SCHISM_MACOSX)
-	"lib%s.dylib",
+	//"lib%s.dylib",
 #else
-	"lib%s.so",
+	//"lib%s.so",
 #endif
 	NULL,
 };

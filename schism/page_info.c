@@ -32,6 +32,7 @@
 #include "config-parser.h"
 #include "accessibility.h"
 #include "keyboard.h"
+#include "str.h"
 
 #include <assert.h>
 #include <inttypes.h>
