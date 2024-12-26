@@ -28,6 +28,7 @@
 #include "vgamem.h"
 #include "widget.h"
 #include "charset.h"
+#include "str.h"
 #include "accessibility.h"
 
 #include <ctype.h>
