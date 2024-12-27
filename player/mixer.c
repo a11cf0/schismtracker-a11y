@@ -114,14 +114,14 @@ static inline uint32_t safe_abs_32(int32_t x)
 	const int##bits##_t *p = (int##bits##_t *)(chan->current_sample_data) + chan->position; \
 	if (chan->flags & CHN_STEREO) p += chan->position; \
 	int32_t *pvol = pbuffer; \
-	uint32_t max = chan->vu_meter << 16; \
+	uint32_t max = chan->vu_meter; \
 	do {
 
 
 #define SNDMIX_ENDSAMPLELOOP \
 		position += chan->increment; \
 	} while (pvol < pbufmax); \
-	chan->vu_meter = max >> 16; \
+	chan->vu_meter = max; \
 	chan->position  += position >> 16; \
 	chan->position_frac = position & 0xFFFF;
 
@@ -244,6 +244,7 @@ static inline uint32_t safe_abs_32(int32_t x)
 	pvol[0] += vol_lx; \
 	pvol[1] += vol_rx; \
 	uint32_t vol_avg = safe_abs_32(rshift_signed(vol_lx, 1) + rshift_signed(vol_rx, 1)); \
+	if (vol_avg > UINT32_C(0xFF0000)) vol_avg = UINT32_C(0xFF0000); \
 	if (vol_avg > max) max = vol_avg; \
 	pvol += 2;
 
@@ -253,6 +254,7 @@ static inline uint32_t safe_abs_32(int32_t x)
 	pvol[0] += vol_lx; \
 	pvol[1] += vol_rx; \
 	uint32_t vol_avg = safe_abs_32(rshift_signed(vol_lx, 1) + rshift_signed(vol_rx, 1)); \
+	if (vol_avg > UINT32_C(0xFF0000)) vol_avg = UINT32_C(0xFF0000); \
 	if (vol_avg > max) max = vol_avg; \
 	pvol += 2;
 
@@ -261,6 +263,7 @@ static inline uint32_t safe_abs_32(int32_t x)
 	pvol[0] += v; \
 	pvol[1] += v; \
 	uint32_t vol_avg = safe_abs_32(v); \
+	if (vol_avg > UINT32_C(0xFF0000)) vol_avg = UINT32_C(0xFF0000); \
 	if (vol_avg > max) max = vol_avg; \
 	pvol += 2;
 
@@ -272,6 +275,7 @@ static inline uint32_t safe_abs_32(int32_t x)
 	pvol[0] += vol_lx; \
 	pvol[1] += vol_rx; \
 	uint32_t vol_avg = safe_abs_32(rshift_signed(vol_lx, 1) + rshift_signed(vol_rx, 1)); \
+	if (vol_avg > UINT32_C(0xFF0000)) vol_avg = UINT32_C(0xFF0000); \
 	if (vol_avg > max) max = vol_avg; \
 	pvol += 2;
 
@@ -281,6 +285,7 @@ static inline uint32_t safe_abs_32(int32_t x)
 	pvol[0] += fastvol; \
 	pvol[1] += fastvol; \
 	uint32_t fastvolabs = safe_abs_32(fastvol); \
+	if (fastvolabs > UINT32_C(0xFF0000)) fastvolabs = UINT32_C(0xFF0000); \
 	if (fastvolabs > max) max = fastvolabs; \
 	pvol += 2;
 
@@ -292,6 +297,7 @@ static inline uint32_t safe_abs_32(int32_t x)
 	pvol[0] += vol_lx; \
 	pvol[1] += vol_rx; \
 	uint32_t vol_avg = safe_abs_32(rshift_signed(vol_lx, 1) + rshift_signed(vol_rx, 1)); \
+	if (vol_avg > UINT32_C(0xFF0000)) vol_avg = UINT32_C(0xFF0000); \
 	if (vol_avg > max) max = vol_avg; \
 	pvol += 2;
 
@@ -951,11 +957,7 @@ uint32_t csf_create_stereo_mix(song_t *csf, uint32_t count)
 			}
 		} while (nsamples > 0);
 
-		// While I'd prefer to do this here instead of in the
-		// mixing function, it seems to actually cause weird
-		// unexplainable errors, i.e. the info page sees wildly
-		// different numbers than we do, WEIRD!!
-		//channel->vu_meter >>= 16;
+		channel->vu_meter >>= 16;
 
 		nchmixed += naddmix;
 	}
