@@ -82,11 +82,14 @@ void dialog_draw(void)
 		if (dialogs[d].type == DIALOG_CUSTOM && !a11y_text_reported) {
 			char buf[1024];
 			a11y_get_text_from_rect(dialogs[d].x + 1, dialogs[d].y + 1, dialogs[d].w - 2, dialogs[d].h - 6, buf);
-			a11y_output(buf, 1);
+			a11y_output(buf, 0);
 		}
 
-		if (dialogs[d].text)
+		if (dialogs[d].text) {
 			draw_text(dialogs[d].text, dialogs[d].text_x, 27, 0, 2);
+			if (!a11y_text_reported)
+				a11y_output(dialogs[d].text, 0);
+		}
 
 		n = dialogs[d].total_widgets;
 		while (n) {
@@ -392,7 +395,6 @@ struct dialog *dialog_create(int type, const char *text, void (*action_yes) (voi
 	num_dialogs++;
 
 	status.dialog_type = type;
-	if (text) a11y_output(text, 1);
 	a11y_text_reported = 0;
 	status.flags |= NEED_UPDATE;
 	return &dialogs[d];
