@@ -971,7 +971,9 @@ int schism_main(int argc, char** argv)
 #endif
 
 	video_mousecursor(cfg_video_mousecursor);
-	status_text_flash(" "); /* silence the mouse cursor message */
+	/* silence the mouse cursor message */
+	status_text_flash(" ");
+	a11y_interrupt();
 
 	load_pages();
 	main_song_changed_cb();
