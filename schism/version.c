@@ -49,11 +49,10 @@ Information at our disposal:
 		onto the code for a really long time before building it.
 
 */
-static const char* top_banner_normal =
 #ifndef EMPTY_VERSION
-	"Schism Tracker " VERSION
+# define TOP_BANNER_NORMAL "Schism Tracker " VERSION
 #else
-	"Schism Tracker built " __DATE__ " " __TIME__
+# define TOP_BANNER_NORMAL "Schism Tracker built " __DATE__ " " __TIME__
 #endif
 	;
 
@@ -206,7 +205,7 @@ uint32_t ver_reserved;
 
 /* these should be 50 characters or shorter, as they are used in the startup dialog */
 const char *ver_short_copyright =
-	"Copyright (c) 2003-2024 Storlek, Mrs. Brisby et al.";
+	"Copyright (c) 2003-2025 Storlek, Mrs. Brisby et al.";
 const char *ver_short_based_on =
 	"Based on Impulse Tracker by Jeffrey Lim aka Pulse";
 
@@ -216,7 +215,7 @@ const char *schism_banner(int classic)
 {
 	return (classic
 		? TOP_BANNER_CLASSIC
-		: top_banner_normal);
+		: TOP_BANNER_NORMAL);
 }
 
 void ver_decode_cwtv(uint16_t cwtv, uint32_t reserved, char buf[11])

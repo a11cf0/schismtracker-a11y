@@ -22,6 +22,7 @@
  */
 
 #include "headers.h"
+#include "threads.h"
 #include "backend/timer.h"
 
 #include "init.h"
@@ -30,31 +31,37 @@ static int (SDLCALL *sdl2_InitSubSystem)(Uint32 flags) = NULL;
 static void (SDLCALL *sdl2_QuitSubSystem)(Uint32 flags) = NULL;
 
 static void (SDLCALL *sdl2_Delay)(uint32_t ms) = NULL;
-static uint32_t (SDLCALL *sdl2_GetTicks)(void) = NULL;
+
+static uint64_t (SDLCALL *sdl2_GetPerformanceFrequency)(void) = NULL;
+static uint64_t (SDLCALL *sdl2_GetPerformanceCounter)(void) = NULL;
 
 // Introduced in SDL 2.0.18
 static uint64_t (SDLCALL *sdl2_GetTicks64)(void) = NULL;
 
 static int sdl2_have_timer64 = 0;
 
+static uint64_t sdl2_performance_start = 0;
+static uint64_t sdl2_performance_frequency = 0;
+
 static schism_ticks_t sdl2_timer_ticks(void)
 {
 #if defined(SDL2_DYNAMIC_LOAD) || SDL_VERSION_ATLEAST(2, 0, 18)
-	if (sdl2_GetTicks64)
+	if (sdl2_have_timer64)
 		return sdl2_GetTicks64();
 #endif
 
-	return sdl2_GetTicks();
+	schism_ticks_t ticks = sdl2_GetPerformanceCounter();
+
+	ticks -= sdl2_performance_start;
+	ticks *= 1000;
+	ticks /= sdl2_performance_frequency;
+
+	return ticks;
 }
 
 static int sdl2_timer_ticks_passed(schism_ticks_t a, schism_ticks_t b)
 {
-#if defined(SDL2_DYNAMIC_LOAD) || SDL_VERSION_ATLEAST(2, 0, 18)
-	if (sdl2_GetTicks64)
-		return (a >= b);
-#endif
-
-	return ((int32_t)(b - a) <= 0);
+	return (a >= b);
 }
 
 static void sdl2_timer_delay(uint32_t ms)
@@ -69,8 +76,10 @@ static int sdl2_timer_load_syms(void)
 	SCHISM_SDL2_SYM(InitSubSystem);
 	SCHISM_SDL2_SYM(QuitSubSystem);
 
-	SCHISM_SDL2_SYM(GetTicks);
 	SCHISM_SDL2_SYM(Delay);
+
+	SCHISM_SDL2_SYM(GetPerformanceCounter);
+	SCHISM_SDL2_SYM(GetPerformanceFrequency);
 
 	return 0;
 }
@@ -94,8 +103,12 @@ static int sdl2_timer_init(void)
 	if (sdl2_timer_load_syms())
 		return 0;
 
-	if (!sdl2_timer64_load_syms())
+	if (!sdl2_timer64_load_syms()) {
 		sdl2_have_timer64 = 1;
+	} else {
+		sdl2_performance_frequency = sdl2_GetPerformanceFrequency();
+		sdl2_performance_start = sdl2_GetPerformanceCounter();
+	}
 
 	if (sdl2_InitSubSystem(SDL_INIT_TIMER) < 0)
 		return 0;
