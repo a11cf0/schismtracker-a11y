@@ -392,9 +392,11 @@ static const char* instrument_list_a11y_get_value(char *buf)
 	song_instrument_t *ins = song_get_instrument(current_instrument);
 	str_from_num99(current_instrument, buf);
 	strcat(buf, ": ");
-	CHARSET_EASY_MODE(ins->name, CHARSET_CP437, CHARSET_CHAR, {
+	void *out = charset_iconv_easy(ins->name, CHARSET_CP437, CHARSET_CHAR);
+	if (out) {
 		strcat(buf, out);
-	});
+		free(out);
+	}
 	return buf;
 }
 

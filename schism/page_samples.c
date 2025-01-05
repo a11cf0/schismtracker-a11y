@@ -166,9 +166,11 @@ static const char* sample_list_a11y_get_value(char* buf)
 	song_sample_t *smp = song_get_sample(current_sample);
 	str_from_num99(current_sample, buf);
 	strcat(buf, ": ");
-	CHARSET_EASY_MODE(smp->name, CHARSET_CP437, CHARSET_CHAR, {
+	void *out = charset_iconv_easy(smp->name, CHARSET_CP437, CHARSET_CHAR);
+	if (out) {
 		strcat(buf, out);
-	});
+		free(out);
+	}
 	return buf;
 }
 

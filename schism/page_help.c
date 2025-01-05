@@ -180,9 +180,12 @@ static const char* help_a11y_get_value(char *buf)
 	if (!*type || **ptr == LTYPE_DISABLED) {
 		int len = strlen(buf);
 		strncat(buf, *ptr + 2, lp);
-		CHARSET_EASY_MODE(&buf[len], CHARSET_CP437, CHARSET_CHAR, {
+		void *out = charset_iconv_easy(&buf[len], CHARSET_CP437, CHARSET_CHAR);
+		if (out) {
 			strcpy(buf, out);
-		});
+			buf[lp] = '\0';
+			free(out);
+		}
 	}
 	return buf;
 }
@@ -201,7 +204,7 @@ static int help_handle_key(struct key_event * k)
 	int new_cur_line = current_line;
 	char buf[100];
 	char ch;
-	int last_char = _get_line_length(new_cur_line) - 2;
+	int last_char = _get_line_length(new_cur_line) - 1;
 
 	if (status.dialog_type != DIALOG_NONE) return 0;
 

@@ -65,21 +65,26 @@ const char* a11y_get_widget_info(struct widget *w, enum a11y_info info, char *bu
 
 const char* a11y_get_widget_label(struct widget *w, char *buf)
 {
+	void *out;
 	buf[0] = '\0';
 	switch (w-> type) {
 	case WIDGET_BUTTON:
-		CHARSET_EASY_MODE_CONST(w->d.button.text, CHARSET_CP437, CHARSET_CHAR, {
+		out = charset_iconv_easy(w->d.button.text, CHARSET_CP437, CHARSET_CHAR);
+		if (out) {
 			strcpy(buf, out);
-		});
+			free(out);
+		}
 		break;
 	case WIDGET_TOGGLEBUTTON:
 		if (*selected_widget == w->d.togglebutton.group[0]) {
 			a11y_try_find_widget_label(w, buf);
 			if (strlen(buf)) strcat(buf, ": ");
 		}
-		CHARSET_EASY_MODE_CONST(w->d.togglebutton.text, CHARSET_CP437, CHARSET_CHAR, {
+		out = charset_iconv_easy(w->d.togglebutton.text, CHARSET_CP437, CHARSET_CHAR);
+		if (out) {
 			strcat(buf, out);
-		});
+			free(out);
+		}
 		break;
 	case WIDGET_PANBAR:
 		sprintf(buf, "Channel %d", w->d.panbar.channel);
@@ -141,9 +146,11 @@ const char* a11y_get_widget_value(struct widget *w, char *buf)
 	switch (w->type) {
 	case WIDGET_TEXTENTRY:
 		value = w->d.textentry.text;
-		CHARSET_EASY_MODE_CONST(value, CHARSET_CP437, CHARSET_CHAR, {
+		void *out = charset_iconv_easy(value, CHARSET_CP437, CHARSET_CHAR);
+		if (out) {
 			strcpy(buf, out);
-		});
+			free(out);
+		}
 		break;
 	case WIDGET_NUMENTRY:
 		if (w->d.numentry.reverse) {
@@ -235,6 +242,7 @@ const char* a11y_try_find_widget_label(struct widget *w, char* buf)
 {
 	uint32_t *label = NULL;
 	uint32_t str[81] = { 0 };
+	void *out;
 	int found = 0;
 	int alternative_method = 0;
 	int len = 0;
@@ -257,9 +265,11 @@ const char* a11y_try_find_widget_label(struct widget *w, char* buf)
 		len = get_label_length(label, 80);
 		memcpy(str, label, len * sizeof(uint32_t));
 		str[len] = 0;
-		CHARSET_EASY_MODE_CONST((uint8_t*)str, CHARSET_UCS4, CHARSET_CHAR, {
+		out = charset_iconv_easy((uint8_t*)str, CHARSET_UCS4, CHARSET_CHAR);
+		if (out) {
 			strcpy(buf, out);
-		});
+			free(out);
+		}
 		return buf;
 	}
 	uint32_t *start = acbuf_get_ptr_to(0, w->y);
@@ -282,9 +292,11 @@ const char* a11y_try_find_widget_label(struct widget *w, char* buf)
 		len = get_label_length(label, 80);
 		memcpy(str, label, len * sizeof(uint32_t));
 		str[len] = 0;
-		CHARSET_EASY_MODE_CONST((uint8_t*)str, CHARSET_UCS4, CHARSET_CHAR, {
+		out = charset_iconv_easy((uint8_t*)str, CHARSET_UCS4, CHARSET_CHAR);
+		if (out) {
 			strcpy(buf, out);
-		});
+			free(out);
+		}
 	} else if (w->type != WIDGET_TOGGLEBUTTON) {
 		alternative_method = 1;
 		goto alternative;
@@ -301,9 +313,11 @@ const char* a11y_get_text_from(int x, int y, char* buf)
 	if (x < 0 || x >= 80 || y < 0 || y >= 50)
 		return buf;
 	ptr = acbuf_get_ptr_to(x, y);
-	CHARSET_EASY_MODE_CONST((uint8_t*)&ptr, CHARSET_UCS4, CHARSET_CHAR, {
+	void *out = charset_iconv_easy((uint8_t*)&ptr, CHARSET_UCS4, CHARSET_CHAR);
+	if (out) {
 		strcat(buf, out);
-	});
+		free(out);
+	}
 	return buf;
 }
 
@@ -322,9 +336,11 @@ const char* a11y_get_text_from_rect(int x, int y, int w, int h, char *buf)
 		if (start == -1)
 			continue;
 		replace_nulls_and_terminate(&str[start], w - start);
-		CHARSET_EASY_MODE_CONST((uint8_t*)&str[start], CHARSET_UCS4, CHARSET_CHAR, {
+		void *out = charset_iconv_easy((uint8_t*)&str[start], CHARSET_UCS4, CHARSET_CHAR);
+		if (out) {
 			strcat(buf, out);
-		});
+			free(out);
+		}
 	}
 	return buf;
 }
@@ -378,12 +394,14 @@ int a11y_output_cp437(const char* text, int interrupt)
 	int result = 0;
 	int len = strlen(text);
 
-	CHARSET_EASY_MODE_CONST(text, CHARSET_CP437, CHARSET_CHAR, {
+	void *out = charset_iconv_easy(text, CHARSET_CP437, CHARSET_CHAR);
+	if (out){
 		if (len <= 1)
-			a11y_char_mode_output(out, interrupt);
+			result = a11y_char_mode_output(out, interrupt);
 		else
 			result = a11y_output(out, interrupt);
-	});
+		free(out);
+	}
 	return result;
 }
 

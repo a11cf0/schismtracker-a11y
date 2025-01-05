@@ -85,9 +85,11 @@ static const char* log_a11y_get_value(char *buf)
 		strcpy(buf, "Separator");
 	else {
 		strcpy(buf, lines[current_line].text);
-		CHARSET_EASY_MODE(buf, CHARSET_CP437, CHARSET_CHAR, {
+		void *out = charset_iconv_easy(buf, CHARSET_CP437, CHARSET_CHAR);
+		if (out) {
 			strcpy(buf, out);
-		});
+			free(out);
+		}
 	}
 	return buf;
 }

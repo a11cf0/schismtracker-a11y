@@ -238,9 +238,11 @@ static const char* message_a11y_get_value(char *buf)
 	char *ptr = NULL;
 	int line_len = get_nth_line(current_song->message, current_line, &ptr);
 	memcpy(buf, ptr, line_len); buf[line_len] = '\0';
-	CHARSET_EASY_MODE(buf, CHARSET_CP437, CHARSET_CHAR, {
+	void *out = charset_iconv_easy(buf, CHARSET_CP437, CHARSET_CHAR);
+	if (out) {
 		strcpy(buf, out);
-	});
+		free(out);
+	}
 	return buf;
 }
 
