@@ -254,7 +254,7 @@ AM_CONDITIONAL([NEED_UNSETENV], [test "x$ac_cv_func_unsetenv" = "xno"])
 AM_CONDITIONAL([NEED_GETOPT], [test "x$ac_cv_func_getopt_long" = "xno"])
 
 dnl Headers, typedef crap, et al.
-AC_CHECK_HEADERS(sys/time.h dirent.h limits.h signal.h unistd.h sys/param.h sys/ioctl.h sys/socket.h sys/soundcard.h poll.h sys/poll.h linux/fb.h sys/kd.h)
+AC_CHECK_HEADERS(sys/time.h dirent.h limits.h signal.h unistd.h sys/param.h sys/ioctl.h sys/socket.h sys/soundcard.h poll.h sys/poll.h linux/fb.h sys/kd.h stdint.h inttypes.h)
 
 AM_CONDITIONAL([USE_OSS], [false])
 if test "x$ac_cv_header_sys_soundcard_h" = "xyes"; then
@@ -273,9 +273,55 @@ fi
 
 AC_C_CONST
 AC_C_INLINE
+AC_TYPE_INT8_T
+AC_TYPE_INT16_T
+AC_TYPE_INT32_T
+AC_TYPE_INT64_T
+AC_TYPE_INTMAX_T
+AC_TYPE_INTPTR_T
+AC_TYPE_UINT8_T
+AC_TYPE_UINT16_T
+AC_TYPE_UINT32_T
+AC_TYPE_UINT64_T
+AC_TYPE_UINTMAX_T
+AC_TYPE_UINTPTR_T
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
 AC_STRUCT_TM
+
+dnl --------------------------------------------------------------------------
+dnl Some weird, backwards platforms do not understand "%zu", so we have to
+dnl map it to something that will probably work everywhere.
+
+AC_CHECK_SIZEOF([size_t])
+
+case "x$ac_cv_sizeof_size_t" in
+x1*)
+	AC_DEFINE([PRIuSZ], [PRIu8], [ ])
+	AC_DEFINE([PRIxSZ], [PRIx8], [ ])
+	AC_DEFINE([PRIXSZ], [PRIX8], [ ])
+	;;
+x2*)
+	AC_DEFINE([PRIuSZ], [PRIu16], [ ])
+	AC_DEFINE([PRIxSZ], [PRIx16], [ ])
+	AC_DEFINE([PRIXSZ], [PRIX16], [ ])
+	;;
+x4*)
+	AC_DEFINE([PRIuSZ], [PRIu32], [ ])
+	AC_DEFINE([PRIxSZ], [PRIx32], [ ])
+	AC_DEFINE([PRIXSZ], [PRIX32], [ ])
+	;;
+x8*)
+	AC_DEFINE([PRIuSZ], [PRIu64], [ ])
+	AC_DEFINE([PRIxSZ], [PRIx64], [ ])
+	AC_DEFINE([PRIXSZ], [PRIX64], [ ])
+	;;
+*)
+	AC_DEFINE([PRIuSZ], ["zu"], [ ])
+	AC_DEFINE([PRIxSZ], ["zx"], [ ])
+	AC_DEFINE([PRIXSZ], ["zX"], [ ])
+	;;
+esac
 
 dnl -----------------------------------------------------------------------
 
@@ -442,6 +488,29 @@ fi
 
 if test "x$use_macosx" = "xyes"; then
 	AC_PROG_OBJC
+
+	dnl stupid hax to allow C99 and C11 compilation
+	dnl TODO this should try both C11 and C99 in that
+	dnl order since the objective c compiler may be
+	dnl older or newer than the c compiler
+	old_OBJC="$OBJC"
+	if test "x$ac_cv_prog_cc_c11" != "xno"; then
+		OBJC="$OBJC $ac_cv_prog_cc_c11"
+	elif test "x$ac_cv_prog_cc_c99" != "xno"; then
+		OBJC="$OBJC $ac_cv_prog_cc_c99"
+	fi
+
+	AC_LANG_PUSH([Objective C])
+	AC_COMPILE_IFELSE(
+		[AC_LANG_PROGRAM([[]], [[return 0;]])],
+		[objc_hax_works=yes],
+		[objc_hax_works=no])
+	AC_LANG_POP([Objective C])
+
+	dnl whatever, punt
+	if "x$objc_hax_works" = "xno"; then
+		OBJC = "$old_OBJC"
+	fi
 else
 	dnl stupid hack to make Objective-C optional
 	AM_CONDITIONAL([am__fastdepOBJC], [false])
@@ -541,6 +610,9 @@ if test "x$posix_fseek" = "xunknown"; then
 
 			if (fclose(fp) == EOF)
 				return 11;
+
+			// eh
+			remove("conftest.bin");
 		}
 
 		// compare what we got
@@ -804,7 +876,17 @@ fi
 
 dnl Unlike a grand -Werror, this one could be rather important:
 dnl functions returning random values are no good under any circumstances.
-AS_IF([test ${ac_cv_c_compiler_gnu+y}], [CFLAGS="$CFLAGS -Werror=return-type"])
+AC_MSG_CHECKING([for -Werror=return-type support])
+old_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS -Werror=return-type"
+AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM([[]], [[return 0;]])],
+	[have_error_return_type=yes],
+	[have_error_return_type=no])
+AC_MSG_RESULT([$have_error_return_type])
+if test "x$have_error_return_type" = "xno"; then
+	CFLAGS="$old_CFLAGS"
+fi
 
 if test x$ADD_PROFILING \!= xno || test x$ADD_DEBUG \!= xno; then
 	project_CFLAGS="$project_CFLAGS -g -O0"

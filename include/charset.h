@@ -125,11 +125,14 @@ void *charset_case_fold_to_set(const void *in, charset_t inset, charset_t outset
 /* charset-aware replacements for C stdlib functions */
 size_t charset_strlen(const void* in, charset_t inset);
 int32_t charset_strcmp(const void* in1, charset_t in1set, const void* in2, charset_t in2set);
+int32_t charset_strncmp(const void* in1, charset_t in1set, const void* in2, charset_t in2set, size_t num);
 int32_t charset_strcasecmp(const void* in1, charset_t in1set, const void* in2, charset_t in2set);
-int32_t charset_strverscmp(const void *in1, charset_t in1set, const void *in2, charset_t in2set);
-int32_t charset_strcaseverscmp(const void *in1, charset_t in1set, const void *in2, charset_t in2set);
 int32_t charset_strncasecmp(const void* in1, charset_t in1set, const void* in2, charset_t in2set, size_t num);
 size_t charset_strncasecmplen(const void* in1, charset_t in1set, const void* in2, charset_t in2set, size_t num);
+int32_t charset_strverscmp(const void *in1, charset_t in1set, const void *in2, charset_t in2set);
+int32_t charset_strcaseverscmp(const void *in1, charset_t in1set, const void *in2, charset_t in2set);
+void *charset_strstr(const void *in1, charset_t in1set, const void *in2, charset_t in2set);
+void *charset_strcasestr(const void *in1, charset_t in1set, const void *in2, charset_t in2set);
 
 /* basic fnmatch */
 enum {
@@ -161,7 +164,21 @@ charset_error_t charset_iconv(const void* in, void* out, charset_t inset, charse
 */
 charset_error_t charset_decode_next(charset_decode_t *decoder, charset_t inset);
 
-/* This is a simple macro for easy charset conversion.
+/* charset_iconv for newbies.
+ * This is preferred to using the below macro, because it is less prone to memory leaks.
+ * Do note that it assumes the input is NUL terminated. */
+inline SCHISM_ALWAYS_INLINE void *charset_iconv_easy(const void *in, charset_t inset, charset_t outset) {
+	void *out;
+	if (!charset_iconv(in, &out, inset, outset, SIZE_MAX))
+		return out;
+	return NULL;
+}
+
+/* [[DEPRECATED]]: Do not use this in new code.
+ * This macro is prone to memory leaks!!!
+ * Use the charset_iconv_easy() function instead.
+ *
+ * This is a simple macro for easy charset conversion.
  *
  * Sample usage:
  *    CHARSET_EASY_MODE(in, CHARSET_CHAR, CHARSET_CP437, {
@@ -174,7 +191,7 @@ charset_error_t charset_decode_next(charset_decode_t *decoder, charset_t inset);
  */
 #define CHARSET_EASY_MODE_EX(MOD, in, inset, outset, x) \
 	do { \
-		MOD void* out; \
+		SCHISM_DEPRECATED MOD void* out; \
 		charset_error_t err = charset_iconv(in, &out, inset, outset, SIZE_MAX); \
 		if (err) \
 			out = in; \

@@ -34,8 +34,6 @@
 #include "str.h"
 
 #include <stdarg.h>
-#include <stddef.h>
-#include <inttypes.h>
 #include <errno.h>
 
 /* --------------------------------------------------------------------- */
