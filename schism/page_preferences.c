@@ -242,9 +242,9 @@ static void audio_device_list_draw() {
 #undef DRAW_DEVICE
 
 	if(focused && !a11y_text_reported) {
-		char buf[AUDIO_DEVICE_BOX_WIDTH + 1];
+		char buf[256];
 		audio_device_list_a11y_get_value(buf);
-		a11y_text_reported = a11y_output(buf, 1);
+		a11y_text_reported = a11y_output(buf, 0);
 	}
 }
 
@@ -403,9 +403,9 @@ static void audio_driver_list_draw() {
 	}
 
 	if(focused && !a11y_text_reported) {
-		char buf[AUDIO_DRIVER_BOX_WIDTH + 1];
+		char buf[256];
 		audio_driver_list_a11y_get_value(buf);
-		a11y_text_reported = a11y_output(buf, 1);
+		a11y_text_reported = a11y_output(buf, 0);
 	}
 }
 

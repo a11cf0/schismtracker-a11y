@@ -323,9 +323,9 @@ static void midi_page_draw_portlist(void)
 	}
 
 	if (ACTIVE_WIDGET.type == WIDGET_OTHER && !a11y_text_reported) {
-		char buf[128];
+		char buf[256];
 		midi_page_a11y_get_value(buf);
-		a11y_text_reported = a11y_output(buf, 1);
+		a11y_text_reported = a11y_output(buf, 0);
 	}
 }
 
