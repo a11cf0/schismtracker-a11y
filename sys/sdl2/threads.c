@@ -84,6 +84,7 @@ schism_thread_t *sdl2_thread_create(schism_thread_function_t func, const char *n
 void sdl2_thread_wait(schism_thread_t *thread, int *status)
 {
 	sdl2_WaitThread(thread->thread, status);
+	free(thread);
 }
 
 void sdl2_thread_set_priority(int priority)
@@ -144,6 +145,7 @@ static SDL_cond *(SDLCALL *sdl2_CreateCond)(void) = NULL;
 static void (SDLCALL *sdl2_DestroyCond)(SDL_cond *cond) = NULL;
 static int (SDLCALL *sdl2_CondSignal)(SDL_cond *cond) = NULL;
 static int (SDLCALL *sdl2_CondWait)(SDL_cond *cond, SDL_mutex *mutex) = NULL;
+static int (SDLCALL *sdl2_CondWaitTimeout)(SDL_cond *cond, SDL_mutex *mutex, uint32_t timeout) = NULL;
 
 struct schism_cond {
 	SDL_cond *cond;
@@ -178,6 +180,11 @@ void sdl2_cond_wait(schism_cond_t *cond, schism_mutex_t *mutex)
 	sdl2_CondWait(cond->cond, mutex->mutex);
 }
 
+void sdl2_cond_wait_timeout(schism_cond_t *cond, schism_mutex_t *mutex, uint32_t timeout)
+{
+	sdl2_CondWaitTimeout(cond->cond, mutex->mutex, timeout);
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 static int sdl2_threads_load_syms(void)
@@ -196,6 +203,7 @@ static int sdl2_threads_load_syms(void)
 	SCHISM_SDL2_SYM(DestroyCond);
 	SCHISM_SDL2_SYM(CondSignal);
 	SCHISM_SDL2_SYM(CondWait);
+	SCHISM_SDL2_SYM(CondWaitTimeout);
 
 	return 0;
 }
@@ -236,4 +244,5 @@ const schism_threads_backend_t schism_threads_backend_sdl2 = {
 	.cond_delete = sdl2_cond_delete,
 	.cond_signal = sdl2_cond_signal,
 	.cond_wait = sdl2_cond_wait,
+	.cond_wait_timeout = sdl2_cond_wait_timeout,
 };

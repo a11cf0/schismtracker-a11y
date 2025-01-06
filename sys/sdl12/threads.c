@@ -27,6 +27,10 @@
 
 #include "init.h"
 
+#ifdef SCHISM_WIN32
+# include <windows.h>
+#endif
+
 /* ------------------------------------ */
 
 #ifdef SDL_PASSED_BEGINTHREAD_ENDTHREAD
@@ -39,7 +43,6 @@ static uint32_t (SDLCALL *sdl12_ThreadID)(void);
 
 struct schism_thread {
 	SDL_Thread *thread;
-	char *name;
 
 	schism_thread_function_t func;
 	void *userdata;
@@ -52,12 +55,11 @@ static int sdl12_dummy_thread_func(void *userdata)
 	return thread->func(thread->userdata);
 }
 
-static schism_thread_t *sdl12_thread_create(schism_thread_function_t func, const char *name, void *userdata)
+static schism_thread_t *sdl12_thread_create(schism_thread_function_t func, SCHISM_UNUSED const char *name, void *userdata)
 {
 	schism_thread_t *thread = mem_alloc(sizeof(*thread));
 
 	thread->func = func;
-	thread->name = name ? str_dup(name) : NULL;
 	thread->userdata = userdata;
 
 	/* ew */
@@ -86,11 +88,30 @@ static schism_thread_t *sdl12_thread_create(schism_thread_function_t func, const
 static void sdl12_thread_wait(schism_thread_t *thread, int *status)
 {
 	sdl12_WaitThread(thread->thread, status);
+
+	free(thread);
 }
 
 static void sdl12_thread_set_priority(SCHISM_UNUSED int priority)
 {
+#ifdef SCHISM_WIN32
+	// equivalent to what SDL 2 does
+	int npri;
+
+	switch (priority) {
+#define PRIORITY(x, y) case BE_THREAD_PRIORITY_##x: npri = THREAD_PRIORITY_##y; break 
+	PRIORITY(LOW, LOWEST);
+	PRIORITY(NORMAL, NORMAL);
+	PRIORITY(HIGH, HIGHEST);
+	PRIORITY(TIME_CRITICAL, TIME_CRITICAL);
+	default: return;
+#undef PRIORITY
+	}
+
+	SetThreadPriority(GetCurrentThread(), npri);
+#else
 	/* no-op */
+#endif
 }
 
 // returns the current thread's ID
@@ -146,6 +167,7 @@ static SDL_cond *(SDLCALL *sdl12_CreateCond)(void);
 static void (SDLCALL *sdl12_DestroyCond)(SDL_cond *cond);
 static int (SDLCALL *sdl12_CondSignal)(SDL_cond *cond);
 static int (SDLCALL *sdl12_CondWait)(SDL_cond *cond, SDL_mutex *mut);
+static int (SDLCALL *sdl12_CondWaitTimeout)(SDL_cond *cond, SDL_mutex *mut, uint32_t timeout);
 
 struct schism_cond {
 	SDL_cond *cond;
@@ -180,6 +202,11 @@ static void sdl12_cond_wait(schism_cond_t *cond, schism_mutex_t *mutex)
 	sdl12_CondWait(cond->cond, mutex->mutex);
 }
 
+static void sdl12_cond_wait_timeout(schism_cond_t *cond, schism_mutex_t *mutex, uint32_t timeout)
+{
+	sdl12_CondWaitTimeout(cond->cond, mutex->mutex, timeout);
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 static int sdl12_threads_load_syms(void)
@@ -197,6 +224,7 @@ static int sdl12_threads_load_syms(void)
 	SCHISM_SDL12_SYM(DestroyCond);
 	SCHISM_SDL12_SYM(CondSignal);
 	SCHISM_SDL12_SYM(CondWait);
+	SCHISM_SDL12_SYM(CondWaitTimeout);
 
 	return 0;
 }
@@ -237,4 +265,5 @@ const schism_threads_backend_t schism_threads_backend_sdl12 = {
 	.cond_delete = sdl12_cond_delete,
 	.cond_signal = sdl12_cond_signal,
 	.cond_wait = sdl12_cond_wait,
+	.cond_wait_timeout = sdl12_cond_wait_timeout,
 };

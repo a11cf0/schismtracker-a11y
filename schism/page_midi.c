@@ -108,7 +108,9 @@ static void toggle_port(void)
 	if (p) {
 		status.flags |= NEED_UPDATE;
 
-		if (p->disable) if (!p->disable(p)) return;
+		if (p->disable && !midi_port_disable(p))
+			return;
+
 		switch (p->io) {
 		case 0:
 			if (p->iocap & MIDI_INPUT) p->io = MIDI_INPUT;
@@ -127,12 +129,7 @@ static void toggle_port(void)
 			break;
 		};
 
-		if (p->enable) {
-			if (!p->enable(p)) {
-				p->io = 0;
-				return;
-			}
-		}
+		midi_port_enable(p);
 	}
 }
 
@@ -301,7 +298,7 @@ static void midi_page_draw_portlist(void)
 			fg = 5;
 			bg = 0;
 		}
-		draw_text_len(name, 64, 13, 15+i, 5, 0);
+		draw_text_utf8_len(name, 64, 13, 15+i, 5, 0);
 
 		if (status.flags & MIDI_EVENT_CHANGED
 		    && (now - status.last_midi_tick) < 3000
