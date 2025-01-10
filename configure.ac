@@ -508,7 +508,7 @@ if test "x$use_macosx" = "xyes"; then
 	AC_LANG_POP([Objective C])
 
 	dnl whatever, punt
-	if "x$objc_hax_works" = "xno"; then
+	if test "x$objc_hax_works" = "xno"; then
 		OBJC = "$old_OBJC"
 	fi
 else
