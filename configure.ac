@@ -215,8 +215,6 @@ case $host in
 esac
 AC_SUBST([LIBM])
 
-AC_SUBST([LIBM])
-
 dnl PKG_CHECK_MODULES will abort if pkg-config is not found.
 dnl This is relatively new behavior; what I've decided to do
 dnl is to set PKG_CONFIG to false on failure, warn the user,
@@ -341,8 +339,6 @@ have_loadso=no
 case "${host_os}" in
 	darwin*)
 		AC_MSG_RESULT([found Darwin host])
-
-		AC_SUBST([OSX_LDADD], ["-framework Cocoa -framework CoreAudio -framework CoreMIDI -framework IOKit"])
 
 		use_macosx=yes
 		posix_fseek=yes
