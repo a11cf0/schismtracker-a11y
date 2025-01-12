@@ -953,11 +953,7 @@ static int handle_key_global(struct key_event * k)
 		if (status.dialog_type != DIALOG_NONE)
 			return 0;
 		_mp_finish(NULL);
-		if ((k->mod & SCHISM_KEYMOD_LSHIFT) && (k->mod & SCHISM_KEYMOD_LALT) && (k->mod & SCHISM_KEYMOD_RALT) && (k->mod & SCHISM_KEYMOD_RCTRL))
-			// Hack to make the wonderful time info shortcut work under Windows.
-			k->sym = SCHISM_KEYSYM_SCROLLLOCK;
-			// Fall through.
-		else if (k->mod & SCHISM_KEYMOD_ALT) {
+		if (k->mod & SCHISM_KEYMOD_ALT) {
 			if (k->state == KEY_PRESS) {
 				midi_flags ^= (MIDI_DISABLE_RECORD);
 				status_text_flash("MIDI Input %s",
@@ -976,6 +972,7 @@ static int handle_key_global(struct key_event * k)
 			return 1;
 		}
 
+	return 1;
 	case SCHISM_KEYSYM_PAUSE:
 		if ((k->mod & SCHISM_KEYMOD_LSHIFT) && (k->mod & SCHISM_KEYMOD_LALT) && (k->mod & SCHISM_KEYMOD_RALT) && (k->mod & SCHISM_KEYMOD_RCTRL)) {
 			_mp_finish(NULL);
