@@ -164,11 +164,17 @@ extern int ya_optind, ya_opterr, ya_optopt;
 # define CLAMP(N,L,H) (((N)>(H))?(H):(((N)<(L))?(L):(N)))
 #endif
 
-/* A bunch of compiler detection stuff... don't mind this... */
+/* Compares two version numbers following Semantic Versioning.
+ * For example:
+ *   SCHISM_SEMVER_ATLEAST(1, 2, 3, 1, 2, 2) -> TRUE
+ *   SCHISM_SEMVER_ATLEAST(1, 2, 3, 2, 0, 0) -> TRUE
+ *   SCHISM_SEMVER_ATLEAST(1, 1, 0, 1, 2, 1) -> FALSE */
 #define SCHISM_SEMVER_ATLEAST(mmajor, mminor, mpatch, major, minor, patch) \
-	((major >= mmajor) \
-	 && (major > mmajor || minor >= mminor) \
-	 && (major > mmajor || minor > mminor || patch >= mpatch))
+	(((major) >= (mmajor)) \
+	 && ((major) > (mmajor) || (minor) >= (mminor)) \
+	 && ((major) > (mmajor) || (minor) > (mminor) || (patch) >= (mpatch)))
+
+/* A bunch of compiler detection stuff... don't mind this... */
 
 // GNU C (not GCC!)
 #if defined(__GNUC__) && defined(__GNUC_MINOR__) && defined(__GNUC_PATCHLEVEL__)
@@ -264,9 +270,7 @@ extern int ya_optind, ya_opterr, ya_optopt;
 # define SCHISM_ALLOC_SIZE_EX(x, y) __attribute__((__alloc_size__(x, y)))
 #endif
 
-// FIXME what is the real minimum version here? mac os x
-// seems to disagree with the idea that it's in gcc 4.0
-#if SCHISM_GNUC_HAS_ATTRIBUTE(__always_inline__, 100, 0, 0)
+#if SCHISM_GNUC_HAS_ATTRIBUTE(__always_inline__, 3, 1, 1)
 # define SCHISM_ALWAYS_INLINE __attribute__((__always_inline__))
 #elif SCHISM_MSVC_ATLEAST(12, 0, 0)
 # define SCHISM_ALWAYS_INLINE __forceinline

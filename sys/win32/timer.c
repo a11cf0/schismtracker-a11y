@@ -51,7 +51,7 @@ static LARGE_INTEGER win32_timer_start = {0};
 static LARGE_INTEGER win32_timer_resolution = {0};
 
 // This is used to regain some lost precision in timeGetTime()
-static schism_mutex_t *win32_timer_overflow_mutex = NULL;
+static mt_mutex_t *win32_timer_overflow_mutex = NULL;
 static int32_t win32_timer_overflow = 0;
 static uint32_t win32_timer_last_known_ticks = 0;
 
@@ -80,7 +80,7 @@ static inline void _win32_timer_ticks_impl(LARGE_INTEGER *ticks)
 	}
 }
 
-static schism_ticks_t win32_timer_ticks(void)
+static timer_ticks_t win32_timer_ticks(void)
 {
 	LARGE_INTEGER ticks = {0};
 
@@ -93,7 +93,7 @@ static schism_ticks_t win32_timer_ticks(void)
 	return ticks.QuadPart;
 }
 
-static schism_ticks_t win32_timer_ticks_us(void)
+static timer_ticks_t win32_timer_ticks_us(void)
 {
 	LARGE_INTEGER ticks = {0};
 
