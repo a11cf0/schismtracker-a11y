@@ -1231,18 +1231,25 @@ void handle_key(struct key_event *k)
 	case SCHISM_KEYSYM_SLASH:
 		if (k->state == KEY_RELEASE) return;
 		if (status.flags & DISKWRITER_ACTIVE) return;
+		// Is there a better compromise?
+		if (ACTIVE_WIDGET.accept_text && k->orig_sym != SCHISM_KEYSYM_KP_DIVIDE)
+			break;
 		kbd_set_current_octave(kbd_get_current_octave() - 1);
 		a11y_outputf("Octave %u", 1, kbd_get_current_octave());
-		break;
+		return;
 	case SCHISM_KEYSYM_ASTERISK:
 		if (k->state == KEY_RELEASE) return;
 		if (status.flags & DISKWRITER_ACTIVE) return;
+		// Is there a better compromise?
+		if (ACTIVE_WIDGET.accept_text && k->orig_sym != SCHISM_KEYSYM_KP_MULTIPLY)
+			break;
 		kbd_set_current_octave(kbd_get_current_octave() + 1);
 		a11y_outputf("Octave %u", 1, kbd_get_current_octave());
-		break;
+		return;
 	case SCHISM_KEYSYM_LEFTBRACKET:
 		if (k->state == KEY_RELEASE) break;
 		if (status.flags & DISKWRITER_ACTIVE) return;
+		if (ACTIVE_WIDGET.accept_text) break;
 		if (k->mod & SCHISM_KEYMOD_SHIFT) {
 			song_set_current_speed(song_get_current_speed() - 1);
 			status_text_flash("Speed set to %d frames per row", song_get_current_speed());
@@ -1266,6 +1273,7 @@ void handle_key(struct key_event *k)
 	case SCHISM_KEYSYM_RIGHTBRACKET:
 		if (k->state == KEY_RELEASE) break;
 		if (status.flags & DISKWRITER_ACTIVE) return;
+		if (ACTIVE_WIDGET.accept_text) break;
 		if (k->mod & SCHISM_KEYMOD_SHIFT) {
 			song_set_current_speed(song_get_current_speed() + 1);
 			status_text_flash("Speed set to %d frames per row", song_get_current_speed());
