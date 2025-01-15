@@ -3440,6 +3440,10 @@ static int pattern_editor_insert(struct key_event *k)
 			}
 		}
 
+		/* copy the note back to the mask */
+		mask_note.note = n;
+		pattern_selection_system_copyout();
+
 		/* try again, now that we have the effect (this is a dumb way to do this...) */
 		if (NOTE_IS_NOTE(n)) {
 			if (keyjazz_play_row && !SONG_PLAYING)
@@ -3447,10 +3451,6 @@ static int pattern_editor_insert(struct key_event *k)
 			else if (!template_mode)
 				song_keyrecord(smp, ins, n, vol, current_channel, cur_note->effect, cur_note->param);
 		}
-
-		/* copy the note back to the mask */
-		mask_note.note = n;
-		pattern_selection_system_copyout();
 
 		n = cur_note->note;
 		if (NOTE_IS_NOTE(n) && cur_note->voleffect == VOLFX_VOLUME)

@@ -136,19 +136,6 @@ extern int ya_optind, ya_opterr, ya_optopt;
 #define PTR_SHAPED_INT(i)               ((void*)(i))
 
 /* -------------------------------------------------------------- */
-/* C99 compatible static assertion */
-
-#if (__STDC_VERSION__ >= 201112L)
-# define SCHISM_STATIC_ASSERT(x, msg) _Static_assert(x, msg)
-#else
-/* should work anywhere and shouldn't dump random stack allocations
- * BUT it fails to provide any sort of useful message to the user */
-# define SCHISM_STATIC_ASSERT(x, msg) \
-	extern int (*schism_static_assert_function_no_touchy_touchy_plz(void)) \
-		[!!sizeof (struct { int __error_if_negative: (x) ? 2 : -1; })]
-#endif
-
-/* -------------------------------------------------------------- */
 /* moved from util.h */
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
@@ -223,6 +210,9 @@ extern int ya_optind, ya_opterr, ya_optopt;
 #ifdef __has_extension
 # define SCHISM_GNUC_HAS_EXTENSION(x, major, minor, patch) \
 	__has_extension(x)
+#elif defined(__has_feature)
+# define SCHISM_GNUC_HAS_EXTENSION(x, major, minor, patch) \
+	__has_feature(x)
 #else
 # define SCHISM_GNUC_HAS_EXTENSION(x, major, minor, patch) \
 	SCHISM_GNUC_ATLEAST(major, minor, patch)
@@ -326,6 +316,16 @@ extern int ya_optind, ya_opterr, ya_optopt;
 # define SCHISM_DEPRECATED
 #endif
 
+#if (__STDC_VERSION__ >= 201112L) || (SCHISM_GNUC_HAS_EXTENSION(c11_static_assert, 4, 6, 0))
+# define SCHISM_STATIC_ASSERT(x, msg) _Static_assert(x, msg)
+#else
+/* should work anywhere and shouldn't dump random stack allocations
+ * BUT it fails to provide any sort of useful message to the user */
+# define SCHISM_STATIC_ASSERT(x, msg) \
+	extern int (*schism_static_assert_function_no_touchy_touchy_plz(void)) \
+		[!!sizeof (struct { int __error_if_negative: (x) ? 2 : -1; })]
+#endif
+
 /* ------------------------------------------------------------------------ */
 
 #ifdef SCHISM_WIN32
@@ -389,6 +389,52 @@ extern int ya_optind, ya_opterr, ya_optopt;
 #ifndef HAVE_STRCASESTR
 # include <charset.h>
 # define strcasestr(haystack, needle) charset_strcasestr(haystack, CHARSET_CHAR, needle, CHARSET_CHAR)
+#endif
+
+/* ------------------------------------------------------------------------ */
+
+#ifdef SCHISM_WIN32
+static int _schism_fixup_ms_vsnprintf(char *buffer, size_t count, const char *fmt, va_list ap)
+{
+	va_list ap_cp;
+
+	if (!count)
+		return _vscprintf(fmt, ap);
+
+	// _vsnprintf doesn't add a terminating NUL character.
+	// zero out the array to account for this
+	memset(buffer, 0, count);
+
+	va_copy(ap_cp, ap);
+	int ret = _vsnprintf(buffer, count - 1, fmt, ap_cp);
+	va_end(ap_cp);
+
+	if (ret == -1)
+		ret = _vscprintf(fmt, ap);
+
+	return ret;
+}
+
+static int _schism_fixup_ms_snprintf(char *buffer, size_t count, const char *fmt, ...) SCHISM_FORMAT(printf, 3, 4);
+static int _schism_fixup_ms_snprintf(char *buffer, size_t count, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	int x = _schism_fixup_ms_vsnprintf(buffer, count, fmt, ap);
+	va_end(ap);
+	return x;
+}
+
+// just in case
+# undef vsnprintf
+# undef _vsnprintf
+# undef snprintf
+# undef _snprintf
+
+# define vsnprintf _schism_fixup_ms_vsnprintf
+# define _vsnprintf _schism_fixup_ms_vsnprintf
+# define snprintf _schism_fixup_ms_snprintf
+# define _snprintf _schism_fixup_ms_snprintf
 #endif
 
 #endif /* SCHISM_HEADERS_H_ */
