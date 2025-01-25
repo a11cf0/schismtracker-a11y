@@ -38,10 +38,6 @@
 
 #include <errno.h>
 
-#ifndef SCHISM_MACOSX
-#include "auto/schismico_hires.h"
-#endif
-
 /* leeto drawing skills */
 struct mouse_cursor {
 	uint32_t pointer[18];
@@ -775,4 +771,11 @@ void video_blit(void)
 int video_get_wm_data(video_wm_data_t *wm_data)
 {
 	return backend->get_wm_data(wm_data);
+}
+
+/* ------------------------------------------------------------ */
+
+void video_show_cursor(int enabled)
+{
+	return backend->show_cursor(enabled);
 }

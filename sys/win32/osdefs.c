@@ -135,6 +135,7 @@ void win32_get_modkey(schism_keymod_t *mk)
 
 void win32_sysinit(SCHISM_UNUSED int *pargc, SCHISM_UNUSED char ***pargv)
 {
+	/* Initialize winsocks */
 	static WSADATA ignored = {0};
 
 	if (WSAStartup(0x202, &ignored) == SOCKET_ERROR) {
@@ -142,6 +143,7 @@ void win32_sysinit(SCHISM_UNUSED int *pargc, SCHISM_UNUSED char ***pargv)
 		status.flags |= NO_NETWORK;
 	}
 
+	/* Build the menus */
 	menu = CreateMenu();
 	{
 		HMENU file = CreatePopupMenu();
@@ -205,6 +207,49 @@ void win32_sysinit(SCHISM_UNUSED int *pargc, SCHISM_UNUSED char ***pargv)
 #ifdef USE_MEDIAFOUNDATION
 	win32mf_init();
 #endif
+
+	/* Convert command line arguments to UTF-8 */
+	{
+		char **utf8_argv;
+		int utf8_argc;
+
+		int i;
+
+		// Windows NT: use Unicode arguments if available
+		LPWSTR cmdline = GetCommandLineW();
+		if (cmdline) {
+			LPWSTR *argvw = CommandLineToArgvW(cmdline, &utf8_argc);
+
+			if (argvw) {
+				// now we have Unicode arguments, so convert them to UTF-8
+				utf8_argv = mem_alloc(sizeof(char *) * utf8_argc);
+
+				for (i = 0; i < utf8_argc; i++) {
+					charset_iconv(argvw[i], &utf8_argv[i], CHARSET_WCHAR_T, CHARSET_CHAR, SIZE_MAX);
+					if (!utf8_argv[i])
+						utf8_argv[i] = str_dup(""); // ...
+				}
+
+				LocalFree(argvw);
+
+				goto have_utf8_args;
+			}
+		}
+
+		// well, that didn't work, fallback to ANSI.
+		utf8_argc = *pargc;
+		utf8_argv = mem_alloc(sizeof(char *) * utf8_argc);
+
+		for (i = 0; i < utf8_argc; i++) {
+			charset_iconv((*pargv)[i], &utf8_argv[i], CHARSET_ANSI, CHARSET_CHAR, SIZE_MAX);
+			if (!utf8_argv[i])
+				utf8_argv[i] = str_dup(""); // ...
+		}
+
+have_utf8_args: ;
+		*pargv = utf8_argv;
+		*pargc = utf8_argc;
+	}
 }
 
 void win32_sysexit(void)
@@ -327,15 +372,8 @@ int win32_event(schism_event_t *event)
 
 			HDROP drop = (HDROP)event->wm_msg.msg.win.wparam;
 
+#ifdef SCHISM_WIN32_COMPILE_ANSI
 			if (GetVersion() & UINT32_C(0x80000000)) {
-				int needed = DragQueryFileW(drop, 0, NULL, 0);
-
-				wchar_t *f = mem_alloc((needed + 1) * sizeof(wchar_t));
-				DragQueryFileW(drop, 0, f, needed + 1);
-				f[needed] = 0;
-
-				charset_iconv(f, &e.drop.file, CHARSET_WCHAR_T, CHARSET_CHAR, (needed + 1) * sizeof(wchar_t));
-			} else {
 				int needed = DragQueryFileA(drop, 0, NULL, 0);
 
 				char *f = mem_alloc((needed + 1) * sizeof(char));
@@ -343,6 +381,16 @@ int win32_event(schism_event_t *event)
 				f[needed] = 0;
 
 				charset_iconv(f, &e.drop.file, CHARSET_ANSI, CHARSET_CHAR, needed + 1);
+			} else
+#endif
+			{
+				int needed = DragQueryFileW(drop, 0, NULL, 0);
+
+				wchar_t *f = mem_alloc((needed + 1) * sizeof(wchar_t));
+				DragQueryFileW(drop, 0, f, needed + 1);
+				f[needed] = 0;
+
+				charset_iconv(f, &e.drop.file, CHARSET_WCHAR_T, CHARSET_CHAR, (needed + 1) * sizeof(wchar_t));
 			}
 
 			if (!e.drop.file)
@@ -376,6 +424,7 @@ void win32_toggle_menu(void *window, int on)
 
 void win32_show_message_box(const char *title, const char *text)
 {
+#ifdef SCHISM_WIN32_COMPILE_ANSI
 	if (GetVersion() & UINT32_C(0x80000000)) {
 		char *title_a = NULL, *text_a = NULL;
 		if (!charset_iconv(title, &title_a, CHARSET_UTF8, CHARSET_ANSI, SIZE_MAX)
@@ -383,7 +432,9 @@ void win32_show_message_box(const char *title, const char *text)
 			MessageBoxA(NULL, text_a, title_a, MB_OK | MB_ICONINFORMATION);
 		free(title_a);
 		free(text_a);
-	} else {
+	} else
+#endif
+	{
 		wchar_t *title_w = NULL, *text_w = NULL;
 		if (!charset_iconv(title, &title_w, CHARSET_UTF8, CHARSET_WCHAR_T, SIZE_MAX)
 			&& !charset_iconv(text, &text_w, CHARSET_UTF8, CHARSET_WCHAR_T, SIZE_MAX))
@@ -424,7 +475,7 @@ int win32_get_key_repeat(int *pdelay, int *prate)
 
 /* -------------------------------------------------------------------- */
 
-static void win32_stat_conv(struct _stat *mst, struct stat *st)
+static inline SCHISM_ALWAYS_INLINE void win32_stat_conv(struct _stat *mst, struct stat *st)
 {
 	st->st_gid = mst->st_gid;
 	st->st_atime = mst->st_atime;
@@ -443,6 +494,7 @@ int win32_stat(const char* path, struct stat* st)
 {
 	struct _stat mst;
 
+#ifdef SCHISM_WIN32_COMPILE_ANSI
 	if (GetVersion() & UINT32_C(0x80000000)) {
 		// Windows 9x
 		char* ac = NULL;
@@ -453,7 +505,9 @@ int win32_stat(const char* path, struct stat* st)
 			win32_stat_conv(&mst, st);
 			return ret;
 		}
-	} else {
+	} else
+#endif
+	{
 		wchar_t* wc = NULL;
 
 		if (!charset_iconv(path, &wc, CHARSET_UTF8, CHARSET_WCHAR_T, SIZE_MAX)) {
@@ -469,6 +523,7 @@ int win32_stat(const char* path, struct stat* st)
 
 FILE* win32_fopen(const char* path, const char* flags)
 {
+#ifdef SCHISM_WIN32_COMPILE_ANSI
 	if (GetVersion() & UINT32_C(0x80000000)) {
 		// Windows 9x
 		char *ac = NULL, *ac_flags = NULL;
@@ -480,7 +535,9 @@ FILE* win32_fopen(const char* path, const char* flags)
 		free(ac);
 		free(ac_flags);
 		return ret;
-	} else {
+	} else
+#endif
+	{
 		// Windows NT
 		wchar_t* wc = NULL, *wc_flags = NULL;
 		if (charset_iconv(path, &wc, CHARSET_UTF8, CHARSET_WCHAR_T, SIZE_MAX)
@@ -499,6 +556,7 @@ FILE* win32_fopen(const char* path, const char* flags)
 
 int win32_mkdir(const char *path, SCHISM_UNUSED mode_t mode)
 {
+#ifdef SCHISM_WIN32_COMPILE_ANSI
 	if (GetVersion() & UINT32_C(0x80000000)) {
 		char* ac = NULL;
 		if (charset_iconv(path, &ac, CHARSET_UTF8, CHARSET_ANSI, SIZE_MAX))
@@ -507,7 +565,9 @@ int win32_mkdir(const char *path, SCHISM_UNUSED mode_t mode)
 		int ret = mkdir(ac);
 		free(ac);
 		return ret;
-	} else {
+	} else
+#endif
+	{
 		wchar_t* wc = NULL;
 		if (charset_iconv(path, &wc, CHARSET_UTF8, CHARSET_WCHAR_T, SIZE_MAX))
 			return -1;
@@ -592,6 +652,7 @@ int win32_run_hook_wide(const char *dir, const char *name, const char *maybe_arg
 #undef DOT_BAT
 }
 
+#ifdef SCHISM_WIN32_COMPILE_ANSI
 int win32_run_hook_ansi(const char *dir, const char *name, const char *maybe_arg)
 {
 #define DOT_BAT ".bat"
@@ -660,12 +721,16 @@ int win32_run_hook_ansi(const char *dir, const char *name, const char *maybe_arg
 	return 0;
 #undef DOT_BAT
 }
+#endif
 
 int win32_run_hook(const char *dir, const char *name, const char *maybe_arg)
 {
+#ifdef SCHISM_WIN32_COMPILE_ANSI
 	if (GetVersion() & UINT32_C(0x80000000)) {
 		return win32_run_hook_ansi(dir, name, maybe_arg);
-	} else {
+	} else
+#endif
+	{
 		return win32_run_hook_wide(dir, name, maybe_arg);
 	}
 }
