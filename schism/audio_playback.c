@@ -105,10 +105,8 @@ static const schism_audio_backend_t *backends[] = {
 	&schism_audio_backend_sdl2,
 #endif
 #ifdef SCHISM_WIN32
-	// SDL 2 provides wasapi & directsound.
-	// SDL 1.2 has directsound but no devices
-	// so prefer waveout over SDL 1.2 dsound
-	&schism_audio_backend_win32,
+	&schism_audio_backend_dsound,
+	&schism_audio_backend_waveout,
 #endif
 #ifdef SCHISM_SDL12
 	&schism_audio_backend_sdl12,
@@ -234,15 +232,13 @@ void free_audio_device_list(void) {
 int refresh_audio_device_list(void) {
 	free_audio_device_list();
 
-	const int count = backend ? backend->device_count() : 0;
-	if (count < 0)
-		return 0;
+	const uint32_t count = backend ? backend->device_count() : 0;
 
 	audio_device_list = malloc(count * sizeof(*audio_device_list));
 	if (!audio_device_list)
 		return 0;
 
-	for (int i = 0; i < count; i++) {
+	for (uint32_t i = 0; i < count; i++) {
 		struct audio_device* dev = audio_device_list + i;
 		dev->id = i;
 		dev->name = str_dup(backend ? backend->device_name(i) : "");
@@ -295,7 +291,7 @@ static void _audio_create_drivers_list(void)
 			const char *n = inited_backends[i]->driver_name(j);
 
 			// Skip known duplicate drivers
-			if (!strcmp(n, "dsound") || !strcmp(n, "directsound")) {
+			if (!strcmp(n, "dsound")) {
 				if (drivers & DRIVER_DSOUND) continue;
 				drivers |= DRIVER_DSOUND;
 			} else if (!strcmp(n, "pulse") || !strcmp(n, "pulseaudio")) {
@@ -307,10 +303,13 @@ static void _audio_create_drivers_list(void)
 			} else if (!strcmp(n, "disk")) {
 				drivers |= DRIVER_DISK;
 				continue;
-			} else if (!strcmp(n, "winmm")) {
+			} else if (!strcmp(n, "winmm") || !strcmp(n, "directsound")) {
 				// Skip SDL 2 waveout driver; we have our own implementation
 				// and the SDL 2's driver seems to randomly want to hang on
 				// exit
+				// We also skip SDL2's directsound driver since it only
+				// supports DirectX 8 and above, while our builtin driver
+				// supports DirectX 5 and above.
 				continue;
 			}
 
@@ -1705,6 +1704,7 @@ int audio_init(const char *driver, const char *device)
 	driver = !strcmp(driver, "oss") ? "dsp"
 		: (!strcmp(driver, "nosound") || !strcmp(driver, "none")) ? "dummy"
 		: (!strcmp(driver, "winmm")) ? "waveout"
+		: (!strcmp(driver, "directsound")) ? "dsound"
 		: driver;
 
 	// Initialize all backends (for audio driver listing)
@@ -1747,6 +1747,7 @@ int audio_init(const char *driver, const char *device)
 agh:
 	if (success) {
 		_audio_init_tail();
+		refresh_audio_device_list();
 		return success;
 	}
 
