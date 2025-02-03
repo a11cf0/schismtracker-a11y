@@ -298,6 +298,7 @@ int song_load_unchecked(const char *file)
 	max_channels_used = 0;
 	_fix_names(current_song);
 	song_stop_unlocked(0);
+	song_init_modplug();
 	song_unlock_audio();
 
 	if (was_playing && (status.flags & PLAY_AFTER_LOAD))
@@ -944,7 +945,7 @@ int dmoz_read_instrument_library(const char *path, dmoz_filelist_t *flist, SCHIS
 	unsigned int j;
 	int x;
 
-	// FIXME why does this do this
+	// FIXME why does this do this ? seems to be a no-op
 	csf_stop_sample(current_song, current_song->samples + 0);
 
 	if (library) {

@@ -31,6 +31,8 @@
 #include "bswap.h"
 #include "bshift.h"
 #include "player/sndfile.h"
+#include "player/snd_fm.h"
+#include "player/snd_gm.h"
 #include "log.h"
 #include "util.h"
 #include "ieee-float.h"
@@ -57,6 +59,14 @@ static void _csf_reset(song_t *csf)
 	csf->process_order = 0;
 	csf->mixing_volume = 0x30;
 	memset(csf->message, 0, sizeof(csf->message));
+
+	// SNDMIX: These are flags for playback control
+	csf->ramping_samples = 64;
+	csf->vu_left = 0;
+	csf->vu_right = 0;
+	csf->dry_rofs_vol = 0;
+	csf->dry_lofs_vol = 0;
+	csf->max_voices = 32; // ITT it is 1994
 
 	csf->row_highlight_major = 16;
 	csf->row_highlight_minor = 4;
@@ -91,6 +101,12 @@ static void _csf_reset(song_t *csf)
 		csf->channels[i].volume = 64;
 		csf->channels[i].flags = 0;
 	}
+
+	OPL_Close(csf);
+	GM_Reset(csf, 1);
+
+	csf->midi_out_note = NULL;
+	csf->midi_out_raw = NULL;
 }
 
 //////////////////////////////////////////////////////////
@@ -216,6 +232,13 @@ void csf_forget_history(song_t *csf)
 
 	time_t thetime = time(NULL);
 	localtime_r(&thetime, &csf->editstart.time);
+}
+
+// Initializes MIDI callback functions
+void csf_init_midi(song_t *csf, song_midi_out_note_spec_t midi_out_note, song_midi_out_raw_spec_t midi_out_raw)
+{
+	csf->midi_out_note = midi_out_note;
+	csf->midi_out_raw  = midi_out_raw;
 }
 
 /* --------------------------------------------------------------------------------------------------------- */
@@ -409,7 +432,6 @@ int csf_get_highest_used_channel(song_t *csf)
 // Misc functions
 
 midi_config_t default_midi_config = {0};
-
 
 void csf_reset_midi_cfg(song_t *csf)
 {

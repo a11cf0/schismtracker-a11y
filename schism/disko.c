@@ -38,6 +38,8 @@
 
 #include "player/sndfile.h"
 #include "player/cmixer.h"
+#include "player/snd_gm.h"
+#include "player/snd_fm.h"
 
 #include <sys/stat.h>
 
@@ -46,6 +48,8 @@
 #include <errno.h>
 
 #define DW_BUFFER_SIZE 65536
+
+static void _disko_midi_out_raw(SCHISM_UNUSED song_t *csf, SCHISM_UNUSED const unsigned char *data, SCHISM_UNUSED uint32_t len, SCHISM_UNUSED uint32_t delay);
 
 // ---------------------------------------------------------------------------
 
@@ -374,19 +378,35 @@ static void _export_setup(song_t *dwsong, int *bps)
 	/* install our own */
 	memcpy(dwsong, current_song, sizeof(song_t)); /* shadow it */
 
+	// !!! FIXME: We should not be messing with this stuff here!
+	dwsong->opl = NULL; // Prevent the current_song OPL being closed
+	GM_Reset(dwsong, 1);
+
+	// Reset the MIDI stuff to our own...
+	//
+	// NOTE: _schism_midi_out_note in audio_playback.c does some
+	// extra stuff. I don't know exactly whether its useful for
+	// disk output though, especially considering that midi out
+	// hasn't existed in the codebase since like 2010 or so.
+	//   -paper
+	csf_init_midi(dwsong, NULL, _disko_midi_out_raw);
+
 	dwsong->multi_write = NULL; /* should be null already, but to be sure... */
 
 	csf_set_current_order(dwsong, 0); /* rather indirect way of resetting playback variables */
-	csf_set_wave_config(dwsong, disko_output_rate, disko_output_bits,
-		(dwsong->flags & SONG_NOSTEREO) ? 1 : disko_output_channels);
+	csf_set_wave_config(dwsong, disko_output_rate, disko_output_bits, (dwsong->flags & SONG_NOSTEREO) ? 1 : disko_output_channels);
 
-	dwsong->mix_flags |= SNDMIX_DIRECTTODISK | SNDMIX_NOBACKWARDJUMPS;
+	dwsong->mix_flags |= (SNDMIX_DIRECTTODISK | SNDMIX_NOBACKWARDJUMPS);
 
 	dwsong->repeat_count = -1; // FIXME do this right
 	dwsong->buffer_count = 0;
 	dwsong->flags &= ~(SONG_PAUSED | SONG_PATTERNLOOP | SONG_ENDREACHED);
 	dwsong->stop_at_order = -1;
 	dwsong->stop_at_row = -1;
+
+	// diskwriter should always output with best available quality, which
+	// means using all available voices.
+	dwsong->max_voices = MAX_VOICES;
 
 	*bps = dwsong->mix_channels * ((dwsong->mix_bits_per_sample + 7) / 8);
 
@@ -395,7 +415,7 @@ static void _export_setup(song_t *dwsong, int *bps)
 
 static void _export_teardown(void)
 {
-	global_vu_left = global_vu_right = 0;
+	// do nothing :)
 }
 
 // ---------------------------------------------------------------------------
@@ -418,6 +438,8 @@ static int close_and_bind(song_t *dwsong, disko_t *ds, song_sample_t *sample, in
 		csf_free_sample(sample->data);
 	sample->data = newdata;
 
+	// FIXME: This should be calling csf_read_sample with a
+	// memory stream.
 	memcpy(newdata, dsshadow.data, dsshadow.length);
 	sample->length = dsshadow.length / bps;
 	sample->flags &= ~(CHN_16BIT | CHN_STEREO | CHN_ADLIB);
@@ -703,6 +725,9 @@ int disko_export_song(const char *filename, const struct save_format *format)
 		return DW_ERROR;
 	}
 
+	// Stop any playing song before exporting to keep old behavior
+	song_stop();
+
 	export_start_time = timer_ticks();
 
 	numfiles = format->f.export.multi ? MAX_CHANNELS : 1;
@@ -951,9 +976,9 @@ void song_pattern_to_sample(int pattern, int split, int bind)
 }
 
 // ---------------------------------------------------------------------------
+// stupid MIDI crap that we can't do anything with anymore really
 
-/* called from audio_playback.c _schism_midi_out_raw() */
-int _disko_writemidi(SCHISM_UNUSED const void *data, SCHISM_UNUSED unsigned int len, SCHISM_UNUSED unsigned int delay)
+static void _disko_midi_out_raw(SCHISM_UNUSED song_t *csf, SCHISM_UNUSED const unsigned char *data, SCHISM_UNUSED uint32_t len, SCHISM_UNUSED uint32_t delay)
 {
-	return DW_ERROR;
+	// nothing, none of our diskwriters even support MIDI anymore.
 }

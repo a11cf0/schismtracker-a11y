@@ -243,9 +243,11 @@ AC_SUBST([UTF8PROC_CFLAGS])
 AC_SUBST([UTF8PROC_LIBS])
 
 dnl Functions
-AC_CHECK_FUNCS(alloca strchr memmove strerror strtol strcasecmp strncasecmp strverscmp stricmp strnicmp strcasestr asprintf vasprintf memcmp nice setenv unsetenv dup fnmatch mkstemp localtime_r umask execl fork nanosleep usleep access getopt_long fdopen)
+AC_CHECK_FUNCS(alloca strchr memmove strerror strtol strcasecmp strncasecmp strverscmp stricmp strnicmp strcasestr asprintf vasprintf snprintf vsnprintf memcmp nice setenv unsetenv dup fnmatch mkstemp localtime_r umask execl fork nanosleep usleep access getopt_long fdopen)
 AM_CONDITIONAL([NEED_ASPRINTF], [test "x$ac_cv_func_asprintf" = "xno"])
 AM_CONDITIONAL([NEED_VASPRINTF], [test "x$ac_cv_func_vasprintf" = "xno"])
+AM_CONDITIONAL([NEED_SNPRINTF], [test "x$ac_cv_func_snprintf" = "xno"])
+AM_CONDITIONAL([NEED_VSNPRINTF], [test "x$ac_cv_func_vsnprintf" = "xno"])
 AM_CONDITIONAL([NEED_MEMCMP], [test "x$ac_cv_func_memcmp" = "xno"])
 AM_CONDITIONAL([NEED_MKSTEMP], [test "x$ac_cv_func_mkstemp" = "xno"])
 AM_CONDITIONAL([NEED_LOCALTIME_R], [test "x$ac_cv_func_localtime_r" = "xno"])
@@ -322,6 +324,14 @@ x8*)
 	AC_DEFINE([PRIXSZ], ["zX"], [ ])
 	;;
 esac
+
+dnl -----------------------------------------------------------------------
+dnl Retrieve size of floating point numbers. This is later used to bypass
+dnl binary decoding of IEEE numbers in ieee-float.c
+
+AC_CHECK_SIZEOF([float])
+AC_CHECK_SIZEOF([double])
+AC_CHECK_SIZEOF([long double])
 
 dnl -----------------------------------------------------------------------
 
@@ -478,11 +488,10 @@ case "${host_os}" in
 esac
 
 dnl Libs
-AC_SEARCH_LIBS([dlopen], [dl])
-if test "x$ac_cv_search_dlopen" = "xyes" || test "x$ac_cv_search_dlopen" = "xnone required"; then
+AC_SEARCH_LIBS([dlopen], [dl], [
 	AC_DEFINE([HAVE_LIBDL], [1], [ ])
 	have_loadso=yes
-fi
+], [])
 
 if test "x$use_macosx" = "xyes"; then
 	AC_PROG_OBJC

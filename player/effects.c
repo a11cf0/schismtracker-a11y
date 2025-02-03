@@ -33,10 +33,6 @@
 
 #include <math.h>
 
-
-// see also csf_midi_out_note in sndmix.c
-void (*csf_midi_out_raw)(const unsigned char *,uint32_t, uint32_t) = NULL;
-
 /* --------------------------------------------------------------------------------------------------------- */
 /* note/freq conversion functions */
 
@@ -89,23 +85,23 @@ void fx_note_cut(song_t *csf, uint32_t nchan, int clear_note)
 {
 	song_voice_t *chan = &csf->voices[nchan];
 	// stop the current note:
-	chan->flags |= CHN_FASTVOLRAMP;
+	chan->flags |= CHN_NOTEFADE | CHN_FASTVOLRAMP;
 	//if (chan->ptr_instrument) chan->volume = 0;
-	chan->length = 0; /* tentative fix: tremor breaks without this, but OpenMPT doesn't do this at all (???) */
 	chan->increment = 0;
+	chan->fadeout_volume = 0;
 	if (clear_note) {
 		// keep instrument numbers from picking up old notes
 		// (SCx doesn't do this)
-		chan->frequency = 0;
+		chan->note = chan->new_note = NOTE_NONE;
 	}
 
 	if (chan->flags & CHN_ADLIB) {
 		//Do this only if really an adlib chan. Important!
-		OPL_NoteOff(nchan);
-		OPL_Touch(nchan, 0);
+		OPL_NoteOff(csf, nchan);
+		OPL_Touch(csf, nchan, 0);
 	}
-	GM_KeyOff(nchan);
-	GM_Touch(nchan, 0);
+	GM_KeyOff(csf, nchan);
+	GM_Touch(csf, nchan, 0);
 }
 
 void fx_key_off(song_t *csf, uint32_t nchan)
@@ -116,9 +112,9 @@ void fx_key_off(song_t *csf, uint32_t nchan)
 		tick_count, (unsigned)nchan, chan->flags);*/
 	if (chan->flags & CHN_ADLIB) {
 		//Do this only if really an adlib chan. Important!
-		OPL_NoteOff(nchan);
+		OPL_NoteOff(csf, nchan);
 	}
-	GM_KeyOff(nchan);
+	GM_KeyOff(csf, nchan);
 
 	song_instrument_t *penv = (csf->flags & SONG_INSTRUMENTMODE) ? chan->ptr_instrument : NULL;
 
@@ -804,7 +800,7 @@ void csf_midi_send(song_t *csf, const unsigned char *data, uint32_t len, uint32_
 			}
 			break;
 		}
-	} else if (!fake && csf_midi_out_raw) {
+	} else if (!fake && csf->midi_out_raw) {
 		/* okay, this is kind of how it works.
 		we pass buffer_count as here because while
 			1000 * ((8((buffer_size/2) - buffer_count)) / sample_rate)
@@ -815,7 +811,7 @@ void csf_midi_send(song_t *csf, const unsigned char *data, uint32_t len, uint32_
 		fortunately, schism does and can complete this (tags: _schism_midi_out_raw )
 
 		*/
-		csf_midi_out_raw(data, len, csf->buffer_count);
+		csf->midi_out_raw(csf, data, len, csf->buffer_count);
 	}
 }
 
@@ -838,7 +834,6 @@ void csf_process_midi_macro(song_t *csf, uint32_t nchan, const char * macro, uin
 		/* okay, there _IS_ no real midi channel. forget this for now... */
 		midi_channel = 15;
 		fake_midi_channel = 1;
-
 	} else if (penv->midi_channel_mask >= 0x10000) {
 		midi_channel = (nchan-1) % 16;
 	} else {
@@ -879,8 +874,8 @@ void csf_process_midi_macro(song_t *csf, uint32_t nchan, const char * macro, uin
 			case 'u': {
 				/* Volume */
 				const int32_t vol = _muldiv(chan->calc_volume * csf->current_global_volume, chan->global_volume * chan->instrument_volume, INT32_C(1) << 26);
-				//printf("%d\n", vol);
-				data = (unsigned char)CLAMP(vol / 2, 0x01, 0x7F);
+				data = (unsigned char)CLAMP(vol, 0x01, 0x7F);
+				//printf("%u\n", data);
 				break;
 			}
 			case 'x':
@@ -1608,11 +1603,11 @@ void csf_check_nna(song_t *csf, uint32_t nchan, uint32_t instr, int note, int fo
 		chan->left_volume = chan->right_volume = 0;
 		if (chan->flags & CHN_ADLIB) {
 			//Do this only if really an adlib chan. Important!
-			OPL_NoteOff(nchan);
-			OPL_Touch(nchan, 0);
+			OPL_NoteOff(csf, nchan);
+			OPL_Touch(csf, nchan, 0);
 		}
-		GM_KeyOff(nchan);
-		GM_Touch(nchan, 0);
+		GM_KeyOff(csf, nchan);
+		GM_Touch(csf, nchan, 0);
 		return;
 	}
 	if (instr >= MAX_INSTRUMENTS) instr = 0;
@@ -1827,15 +1822,6 @@ static void handle_effect(song_t *csf, uint32_t nchan, uint32_t cmd, uint32_t pa
 			chan->cd_tremor |= 128;
 		}
 
-		if ((chan->cd_tremor & 128) && chan->length) {
-			if (chan->cd_tremor == 128)
-				chan->cd_tremor = (chan->mem_tremor >> 4) | 192;
-			else if (chan->cd_tremor == 192)
-				chan->cd_tremor = (chan->mem_tremor & 0xf) | 128;
-			else
-				chan->cd_tremor--;
-		}
-
 		chan->n_command = FX_TREMOR;
 
 		break;
@@ -1929,28 +1915,6 @@ static void handle_effect(song_t *csf, uint32_t nchan, uint32_t cmd, uint32_t pa
 			csf->process_row = PROCESS_NEXT_ORDER;
 		}
 		break;
-
-	case FX_MIDI: {
-		if (!(csf->flags & SONG_FIRSTTICK))
-			break;
-
-		/* this is wrong; see OpenMPT's soundlib/Snd_fx.cpp:
-		 *
-		 *     This is "almost" how IT does it - apparently, IT seems to lag one row
-		 *     behind on global volume or channel volume changes.
-		 *
-		 * OpenMPT also doesn't entirely support IT's version of this macro, which is
-		 * just another demotivator for actually implementing it correctly *sigh* */
-
-		const uint32_t vel = chan->ptr_sample ?
-			_muldiv((chan->volume + chan->vol_swing) * csf->current_global_volume, chan->global_volume * chan->instrument_volume, INT32_C(1) << 20)
-			: 0;
-
-		csf_process_midi_macro(csf, nchan,
-			(param < 0x80) ? csf->midi_config.sfx[chan->active_macro] : csf->midi_config.zxx[param & 0x7F],
-			param, chan->note, vel, 0);
-		break;
-	}
 
 	case FX_NOTESLIDEUP:
 		fx_note_slide(csf->flags | (firsttick ? SONG_FIRSTTICK : 0), chan, param, 1);
@@ -2204,11 +2168,11 @@ void csf_process_effects(song_t *csf, int firsttick)
 				/* Possibly a better bugfix could be devised. --Bisqwit */
 				if (chan->flags & CHN_ADLIB) {
 					//Do this only if really an adlib chan. Important!
-					OPL_NoteOff(nchan);
-					OPL_Touch(nchan, 0);
+					OPL_NoteOff(csf, nchan);
+					OPL_Touch(csf, nchan, 0);
 				}
-				GM_KeyOff(nchan);
-				GM_Touch(nchan, 0);
+				GM_KeyOff(csf, nchan);
+				GM_Touch(csf, nchan, 0);
 			}
 
 			const int previous_new_note = chan->new_note; 
@@ -2232,11 +2196,11 @@ void csf_process_effects(song_t *csf, int firsttick)
 
 				csf_instrument_change(csf, chan, instr, porta, 1);
 				if (csf->samples[instr].flags & CHN_ADLIB) {
-					OPL_Patch(nchan, csf->samples[instr].adlib_bytes);
+					OPL_Patch(csf, nchan, csf->samples[instr].adlib_bytes);
 				}
 
 				if((csf->flags & SONG_INSTRUMENTMODE) && csf->instruments[instr])
-					GM_DPatch(nchan, csf->instruments[instr]->midi_program,
+					GM_DPatch(csf, nchan, csf->instruments[instr]->midi_program,
 						csf->instruments[instr]->midi_bank,
 						csf->instruments[instr]->midi_channel_mask);
 
@@ -2259,9 +2223,9 @@ void csf_process_effects(song_t *csf, int firsttick)
 					    && chan->new_instrument < MAX_INSTRUMENTS
 					    && csf->instruments[chan->new_instrument]) {
 						if (csf->samples[chan->new_instrument].flags & CHN_ADLIB) {
-							OPL_Patch(nchan, csf->samples[chan->new_instrument].adlib_bytes);
+							OPL_Patch(csf, nchan, csf->samples[chan->new_instrument].adlib_bytes);
 						}
-						GM_DPatch(nchan, csf->instruments[chan->new_instrument]->midi_program,
+						GM_DPatch(csf, nchan, csf->instruments[chan->new_instrument]->midi_program,
 							csf->instruments[chan->new_instrument]->midi_bank,
 							csf->instruments[chan->new_instrument]->midi_channel_mask);
 					}

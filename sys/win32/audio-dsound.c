@@ -22,6 +22,10 @@
  */
  
 // Win32 directsound backend
+// TODO: We ought to be able to detect changes in the default device and
+// reopen it if necessary.
+// This should be viable via GetDeviceID() in dsound.dll which lets us
+// check the GUID of the current default device.
 
 #include "headers.h"
 #include "charset.h"
@@ -30,7 +34,11 @@
 #include "osdefs.h"
 #include "loadso.h"
 #include "threads.h"
+#include "video.h" // video_get_wm_data
 #include "backend/audio.h"
+
+// request compatibility with DirectX 5
+#define DIRECTSOUND_VERSION 0x0500
 
 #include <windows.h>
 #include <dsound.h>
@@ -56,7 +64,8 @@ struct schism_audio_device {
 
 	mt_mutex_t *mutex;
 
-	// pass to memset() to make silence
+	// pass to memset() to make silence.
+	// used when paused and when initializing the device buffer
 	uint8_t silence;
 
 	LPDIRECTSOUND dsound;
@@ -114,9 +123,32 @@ static void _dsound_free_devices(void)
 	}
 }
 
-// the GUID is copied, but `name` is not!
-static inline SCHISM_ALWAYS_INLINE void _dsound_device_append(LPGUID lpguid, char *name)
+// This function takes ownership of `name` and is responsible for either freeing it
+// or adding it to a list which will eventually be freed.
+// Note: lpguid AND name must be valid pointers. No null pointers.
+static inline void _dsound_device_append(LPGUID lpguid, char *name)
 {
+	// Filter out waveout emulated devices. If we don't do this, it causes a bit of
+	// CPU overhead and is utterly pointless when we can just use waveout directly
+	// anyway.
+	{
+		LPDIRECTSOUND dsound;
+		if (DSOUND_DirectSoundCreate(lpguid, &dsound, NULL) != DS_OK) {
+			free(name);
+			return;
+		}
+
+		DSCAPS caps = {.dwSize = sizeof(DSCAPS)};
+		if (IDirectSound_GetCaps(dsound, &caps) != DS_OK
+			|| (caps.dwFlags & DSCAPS_EMULDRIVER)) {
+			free(name);
+			IDirectSound_Release(dsound);
+			return;
+		}
+
+		IDirectSound_Release(dsound);
+	}
+
 	if (devices_size >= devices_alloc) {
 		devices_alloc = ((!devices_alloc) ? 1 : (devices_alloc * 2));
 
@@ -312,9 +344,6 @@ static schism_audio_device_t *dsound_audio_open_device(uint32_t id, const schism
 	case 32: format.wBitsPerSample = 32; break;
 	}
 
-	format.nBlockAlign = format.nChannels * (format.wBitsPerSample / 8);
-	format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
-
 	// ok, now allocate
 	schism_audio_device_t *dev = mem_calloc(1, sizeof(*dev));
 
@@ -332,33 +361,67 @@ static schism_audio_device_t *dsound_audio_open_device(uint32_t id, const schism
 		return NULL;
 	}
 
-	// this is what SDL does...
-	if (IDirectSound_SetCooperativeLevel(dev->dsound, GetDesktopWindow(), DSSCL_NORMAL) != DS_OK) {
-		IDirectSound_Release(dev->dsound);
-		mt_mutex_delete(dev->mutex);
-		free(dev);
-		return NULL;
+	// Set the cooperative level
+	{
+		DWORD dwlevel;
+		HWND hwnd;
+
+		video_wm_data_t wm_data;
+		if (video_get_wm_data(&wm_data)) {
+			hwnd = wm_data.data.windows.hwnd;
+			dwlevel = DSSCL_PRIORITY;
+		} else {
+			hwnd = GetDesktopWindow();
+			dwlevel = DSSCL_NORMAL;
+		}
+
+		if (IDirectSound_SetCooperativeLevel(dev->dsound, hwnd, dwlevel) != DS_OK) {
+			IDirectSound_Release(dev->dsound);
+			mt_mutex_delete(dev->mutex);
+			free(dev);
+			return NULL;
+		}
 	}
 
-	dev->size = desired->samples * desired->channels * (desired->bits / 8);
+	DSBUFFERDESC dsformat;
 
-	DWORD bufsize = NUM_CHUNKS * dev->size;
-	if ((bufsize < DSBSIZE_MIN) || (bufsize > DSBSIZE_MAX)) {
-		// too little or too much space in buffer
-		IDirectSound_Release(dev->dsound);
-		mt_mutex_delete(dev->mutex);
-		free(dev);
-		return NULL;
-	}
+	for (;;) {
+		// Recalculate wave format
+		format.nBlockAlign = format.nChannels * (format.wBitsPerSample / 8);
+		format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
 
-	DSBUFFERDESC dsformat = {
-		.dwSize = sizeof(DSBUFFERDESC),
-		.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS,
-		.dwBufferBytes = bufsize,
-		.lpwfxFormat = &format,
-	};
+		dev->size = desired->samples * format.nChannels * (format.wBitsPerSample / 8);
 
-	if (IDirectSound_CreateSoundBuffer(dev->dsound, &dsformat, &dev->lpbuffer, NULL) != DS_OK) {
+		DWORD bufsize = NUM_CHUNKS * dev->size;
+		if ((bufsize < DSBSIZE_MIN) || (bufsize > DSBSIZE_MAX))
+			goto DS_badformat; // UGH!
+
+		dsformat = (DSBUFFERDESC){
+			.dwSize = sizeof(DSBUFFERDESC),
+			.dwFlags = DSBCAPS_GLOBALFOCUS | DSBCAPS_STATIC | DSBCAPS_GETCURRENTPOSITION2,
+			.lpwfxFormat = &format,
+			.dwBufferBytes = NUM_CHUNKS * dev->size,
+		};
+
+		HRESULT err = IDirectSound_CreateSoundBuffer(dev->dsound, &dsformat, &dev->lpbuffer, NULL);
+		if (err == DS_OK) {
+			break;
+		} else if (err == DSERR_BADFORMAT || err == DSERR_INVALIDPARAM /* Win2K */) {
+DS_badformat:
+			if (format.wBitsPerSample == 32) {
+				// Retry again, with 16-bit audio. 32-bit audio doesn't seem
+				// to work on Win2k at all...
+				format.wBitsPerSample = 16;
+				continue;
+			}
+		}
+
+		// NOTE: Many VM audio drivers (namely virtual pc and vmware) are broken
+		// under Win2k and return DSERR_CONTROLUNAVAIL. This doesn't seem to be the
+		// full story however, since SDL seems to create the buffer just fine.
+		// I'm just not going to worry about it for now...
+
+		// Punt if nothing worked
 		mt_mutex_delete(dev->mutex);
 		IDirectSound_Release(dev->dsound);
 		free(dev);
@@ -459,6 +522,11 @@ static void *lib_dsound = NULL;
 
 static int dsound_audio_init(void)
 {
+	// XXX:
+	// SDL also checks for at least Windows 2000 here, citing
+	// that the audio subsystem on NT 4 is somewhat high latency
+	// while using DirectSound. I don't know whether this is
+	// entirely true...
 	lib_dsound = loadso_object_load("DSOUND.DLL");
 	if (!lib_dsound)
 		return 0;
@@ -469,6 +537,7 @@ static int dsound_audio_init(void)
 #endif
 	DSOUND_DirectSoundEnumerateW = loadso_function_load(lib_dsound, "DirectSoundEnumerateW");
 
+	// DirectSoundCaptureCreate was added in DirectX 5
 	if (!DSOUND_DirectSoundCreate) {
 		loadso_object_unload(lib_dsound);
 		return 0;

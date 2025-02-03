@@ -74,8 +74,8 @@ static int audio_writeout_count = 0;
 
 struct audio_settings audio_settings = {0};
 
-static void _schism_midi_out_note(int chan, const song_note_t *m);
-static void _schism_midi_out_raw(const unsigned char *data, uint32_t len, uint32_t delay);
+static void _schism_midi_out_note(song_t *csf, int chan, const song_note_t *m);
+static void _schism_midi_out_raw(song_t *csf, const unsigned char *data, uint32_t len, uint32_t delay);
 
 /* Audio driver related stuff */
 /* XXX how much of this is really needed now? */
@@ -196,7 +196,7 @@ static void audio_callback(uint8_t *stream, int len)
 	}
 
 	if (current_song->num_voices > max_channels_used)
-		max_channels_used = MIN(current_song->num_voices, max_voices);
+		max_channels_used = MIN(current_song->num_voices, current_song->max_voices);
 POST_EVENT:
 	audio_writeout_count++;
 	if (audio_writeout_count > audio_buffers_per_second) {
@@ -217,6 +217,11 @@ POST_EVENT:
 
 // ------------------------------------------------------------------------------------------------------------
 // audio device list
+
+// FIXME: doing it this way causes for duplicate device names to be handled as the same device; this
+// isn't necessarily true! for example, Boot Camp drivers are weird and buggy, and can (and do) create
+// "dummy" speaker devices. When plugging in an audio device to the headphone port, it results in the
+// driver making two audio devices named "Speakers (High Definition Audio Device)"
 
 void free_audio_device_list(void) {
 	for (int count = 0; count < audio_device_list_size; count++)
@@ -255,7 +260,10 @@ int refresh_audio_device_list(void) {
 // Created when audio_init is called for the first time
 static struct {
 	size_t size;
-	const char **list;
+	struct _audio_driver {
+		const schism_audio_backend_t *backend;
+		const char *name;
+	} *list;
 } full_drivers = {0};
 
 static void _audio_create_drivers_list(void)
@@ -264,15 +272,16 @@ static void _audio_create_drivers_list(void)
 	// that were renamed in SDL 2, and also for re-ordering
 	// the drivers after the fact
 	enum {
-		// "dsound" in SDL 1.2, "directsound" in SDL 2
-		DRIVER_DSOUND = 0x01,
 		// "pulse" in SDL 1.2, "pulseaudio" in SDL 2
-		DRIVER_PULSE = 0x02,
+		DRIVER_PULSE = 0x01,
 
-		DRIVER_DISK = 0x04,
-		DRIVER_DUMMY = 0x08,
+		// should always be at the end
+		DRIVER_DISK = 0x02,
+		DRIVER_DUMMY = 0x04,
 	};
 	uint32_t drivers = 0;
+
+	struct _audio_driver disk = {.name = "disk"}, dummy = {.name = "dummy"};
 
 	// Reset the drivers list
 	full_drivers.list = NULL;
@@ -284,24 +293,23 @@ static void _audio_create_drivers_list(void)
 	for (int i = 0; i < ARRAY_SIZE(counts); i++)
 		alloc_size += (counts[i] = (inited_backends[i] ? inited_backends[i]->driver_count() : 0));
 
-	full_drivers.list = mem_alloc(alloc_size * sizeof(const char *));
+	full_drivers.list = mem_alloc(alloc_size * sizeof(*full_drivers.list));
 
 	for (int i = 0; i < ARRAY_SIZE(counts); i++) {
 		for (int j = 0; j < counts[i]; j++) {
 			const char *n = inited_backends[i]->driver_name(j);
 
 			// Skip known duplicate drivers
-			if (!strcmp(n, "dsound")) {
-				if (drivers & DRIVER_DSOUND) continue;
-				drivers |= DRIVER_DSOUND;
-			} else if (!strcmp(n, "pulse") || !strcmp(n, "pulseaudio")) {
+			if (!strcmp(n, "pulse") || !strcmp(n, "pulseaudio")) {
 				if (drivers & DRIVER_PULSE) continue;
 				drivers |= DRIVER_PULSE;
 			} else if (!strcmp(n, "dummy")) {
 				drivers |= DRIVER_DUMMY;
+				dummy.backend = inited_backends[i];
 				continue;
 			} else if (!strcmp(n, "disk")) {
 				drivers |= DRIVER_DISK;
+				disk.backend = inited_backends[i];
 				continue;
 			} else if (!strcmp(n, "winmm") || !strcmp(n, "directsound")) {
 				// Skip SDL 2 waveout driver; we have our own implementation
@@ -317,7 +325,7 @@ static void _audio_create_drivers_list(void)
 			{
 				int fnd = 0;
 				for (size_t k = 0; k < full_drivers.size; k++) {
-					if (!strcmp(n, full_drivers.list[k])) {
+					if (!strcmp(n, full_drivers.list[k].name)) {
 						fnd = 1;
 						break;
 					}
@@ -326,12 +334,15 @@ static void _audio_create_drivers_list(void)
 					continue;
 			}
 
-			full_drivers.list[full_drivers.size++] = n;
+			full_drivers.list[full_drivers.size].name = n;
+			full_drivers.list[full_drivers.size].backend = inited_backends[i];
+
+			full_drivers.size++;
 		}
 	}
 
-	if (drivers & DRIVER_DISK)  full_drivers.list[full_drivers.size++] = "disk";
-	if (drivers & DRIVER_DUMMY) full_drivers.list[full_drivers.size++] = "dummy";
+	if (drivers & DRIVER_DISK)  full_drivers.list[full_drivers.size++] = disk;
+	if (drivers & DRIVER_DUMMY) full_drivers.list[full_drivers.size++] = dummy;
 }
 
 int audio_driver_count(void)
@@ -344,7 +355,7 @@ const char *audio_driver_name(int x)
 	if (x >= full_drivers.size || x < 0)
 		return NULL;
 
-	return full_drivers.list[x];
+	return full_drivers.list[x].name;
 }
 
 // ------------------------------------------------------------------------------------------------------------
@@ -505,8 +516,8 @@ static int song_keydown_ex(int samp, int ins, int note, int vol, int chan, int e
 		csf_check_nna(current_song, chan_internal, ins, note, 0);
 	if (s) {
 		if (c->flags & CHN_ADLIB) {
-			OPL_NoteOff(chan_internal);
-			OPL_Patch(chan_internal, s->adlib_bytes);
+			OPL_NoteOff(current_song, chan_internal);
+			OPL_Patch(current_song, chan_internal, s->adlib_bytes);
 		}
 
 		c->flags = (s->flags & CHN_SAMPLE_FLAGS) | (c->flags & CHN_MUTE);
@@ -530,8 +541,8 @@ static int song_keydown_ex(int samp, int ins, int note, int vol, int chan, int e
 
 			if ((status.flags & MIDI_LIKE_TRACKER) && i) {
 				if (i->midi_channel_mask) {
-					GM_KeyOff(chan_internal);
-					GM_DPatch(chan_internal, i->midi_program, i->midi_bank, i->midi_channel_mask);
+					GM_KeyOff(current_song, chan_internal);
+					GM_DPatch(current_song, chan_internal, i->midi_program, i->midi_bank, i->midi_channel_mask);
 				}
 			}
 
@@ -599,7 +610,7 @@ static int song_keydown_ex(int samp, int ins, int note, int vol, int chan, int e
 			.param = param,
 		};
 
-		_schism_midi_out_note(chan_internal, &mc);
+		_schism_midi_out_note(current_song, chan_internal, &mc);
 	}
 
 	/*
@@ -680,7 +691,7 @@ static void song_reset_play_state(void)
 	// turn this crap off
 	current_song->mix_flags &= ~(SNDMIX_NOBACKWARDJUMPS | SNDMIX_DIRECTTODISK);
 
-	OPL_Reset(); /* gruh? */
+	OPL_Reset(current_song); /* gruh? */
 
 	csf_set_current_order(current_song, 0);
 
@@ -702,7 +713,7 @@ void song_start_once(void)
 	max_channels_used = 0;
 	current_song->repeat_count = -1; // FIXME do this right
 
-	GM_SendSongStartCode();
+	GM_SendSongStartCode(current_song);
 	song_unlock_audio();
 	main_song_mode_changed_cb();
 
@@ -716,7 +727,7 @@ void song_start(void)
 	song_reset_play_state();
 	max_channels_used = 0;
 
-	GM_SendSongStartCode();
+	GM_SendSongStartCode(current_song);
 	song_unlock_audio();
 	main_song_mode_changed_cb();
 
@@ -795,9 +806,9 @@ void song_stop_unlocked(int quitting)
 		midi_playing = 0;
 	}
 
-	OPL_Reset(); /* Also stop all OPL sounds */
-	GM_Reset(quitting);
-	GM_SendSongStopCode();
+	OPL_Reset(current_song); /* Also stop all OPL sounds */
+	GM_Reset(current_song, quitting);
+	GM_SendSongStopCode(current_song);
 
 	memset(last_row,0,sizeof(last_row));
 	last_row_number = -1;
@@ -812,11 +823,11 @@ void song_stop_unlocked(int quitting)
 	playback_tracing = midi_playback_tracing;
 
 	song_reset_play_state();
-	// Modplug doesn't actually have a "stop" mode, but if SONG_ENDREACHED is set, current_song->Read just returns.
+	// Modplug doesn't actually have a "stop" mode, but if SONG_ENDREACHED is set, csf_read just returns.
 	current_song->flags |= SONG_PAUSED | SONG_ENDREACHED;
 
-	global_vu_left = 0;
-	global_vu_right = 0;
+	current_song->vu_left = 0;
+	current_song->vu_right = 0;
 	memset(audio_buffer, 0, audio_buffer_samples * audio_sample_size);
 }
 
@@ -832,7 +843,7 @@ void song_loop_pattern(int pattern, int row)
 	max_channels_used = 0;
 	csf_loop_pattern(current_song, pattern, row);
 
-	GM_SendSongStartCode();
+	GM_SendSongStartCode(current_song);
 
 	song_unlock_audio();
 	main_song_mode_changed_cb();
@@ -850,7 +861,7 @@ void song_start_at_order(int order, int row)
 	current_song->break_row = row;
 	max_channels_used = 0;
 
-	GM_SendSongStartCode();
+	GM_SendSongStartCode(current_song);
 	/* TODO: GM_SendSongPositionCode(calculate the number of 1/16 notes) */
 	song_unlock_audio();
 	main_song_mode_changed_cb();
@@ -935,7 +946,7 @@ int song_get_current_row(void)
 
 int song_get_playing_channels(void)
 {
-	return MIN(current_song->num_voices, max_voices);
+	return MIN(current_song->num_voices, current_song->max_voices);
 }
 
 int song_get_max_channels(void)
@@ -945,8 +956,8 @@ int song_get_max_channels(void)
 // Returns the max value in dBs, scaled as 0 = -40dB and 128 = 0dB.
 void song_get_vu_meter(int *left, int *right)
 {
-	*left = dB_s(40, global_vu_left/256.f, 0.f);
-	*right = dB_s(40, global_vu_right/256.f, 0.f);
+	*left = dB_s(40, current_song->vu_left/256.f, 0.f);
+	*right = dB_s(40, current_song->vu_right/256.f, 0.f);
 }
 
 void song_update_playing_instrument(int i_changed)
@@ -955,7 +966,7 @@ void song_update_playing_instrument(int i_changed)
 	song_instrument_t *inst;
 
 	song_lock_audio();
-	int n = MIN(current_song->num_voices, max_voices);
+	int n = MIN(current_song->num_voices, current_song->max_voices);
 	while (n--) {
 		channel = current_song->voices + current_song->voice_mix[n];
 		if (channel->ptr_instrument && channel->ptr_instrument == current_song->instruments[i_changed]) {
@@ -994,7 +1005,7 @@ void song_update_playing_sample(int s_changed)
 	song_sample_t *inst;
 
 	song_lock_audio();
-	int n = MIN(current_song->num_voices, max_voices);
+	int n = MIN(current_song->num_voices, current_song->max_voices);
 	while (n--) {
 		channel = current_song->voices + current_song->voice_mix[n];
 		if (channel->ptr_sample && channel->current_sample_data) {
@@ -1043,7 +1054,7 @@ void song_get_playing_samples(int samples[])
 	memset(samples, 0, MAX_SAMPLES * sizeof(int));
 
 	song_lock_audio();
-	int n = MIN(current_song->num_voices, max_voices);
+	int n = MIN(current_song->num_voices, current_song->max_voices);
 	while (n--) {
 		channel = current_song->voices + current_song->voice_mix[n];
 		if (channel->ptr_sample && channel->current_sample_data) {
@@ -1066,7 +1077,7 @@ void song_get_playing_instruments(int instruments[])
 	memset(instruments, 0, MAX_INSTRUMENTS * sizeof(int));
 
 	song_lock_audio();
-	int n = MIN(current_song->num_voices, max_voices);
+	int n = MIN(current_song->num_voices, current_song->max_voices);
 	while (n--) {
 		channel = current_song->voices + current_song->voice_mix[n];
 		int ins = song_get_instrument_number((song_instrument_t *) channel->ptr_instrument);
@@ -1268,8 +1279,10 @@ void cfg_save_audio(cfg_file_t *cfg)
 }
 
 // ------------------------------------------------------------------------------------------------------------
-static void _schism_midi_out_note(int chan, const song_note_t *starting_note)
+static void _schism_midi_out_note(song_t *csf, int chan, const song_note_t *starting_note)
 {
+	assert(current_song == csf); // This should only be run on the current song.
+
 	const song_note_t *m = starting_note;
 	unsigned int tc;
 	int m_note;
@@ -1422,8 +1435,10 @@ printf("channel = %d note=%d starting_note=%p\n",chan,m_note,starting_note);
 	}
 
 }
-static void _schism_midi_out_raw(const unsigned char *data, uint32_t len, uint32_t pos)
+static void _schism_midi_out_raw(song_t *csf, const unsigned char *data, uint32_t len, uint32_t pos)
 {
+	assert(current_song == csf); // AGH!
+
 #ifdef SCHISM_MIDI_DEBUG
 	/* prints all of the raw midi messages into the terminal; useful for debugging output */
 	int i = (8000*(audio_buffer_samples)) / (current_song->mix_frequency);
@@ -1434,7 +1449,7 @@ static void _schism_midi_out_raw(const unsigned char *data, uint32_t len, uint32
 	puts(""); /* newline */
 #endif
 
-	if (!_disko_writemidi(data,len,pos))
+	//if (!_disko_writemidi(data,len,pos)) -- not needed
 		midi_send_buffer(data,len,pos);
 }
 
@@ -1621,47 +1636,6 @@ static void _audio_quit(void)
 	}
 }
 
-static int _audio_driver_exists(const char *driver)
-{
-	for (size_t i = 0; i < full_drivers.size; i++)
-		if (!strcmp(full_drivers.list[i], driver))
-			return 1;
-
-	return 0;
-}
-
-// Configure a device. (called at startup)
-static int _audio_init_head(const char *device, int verbose)
-{
-	const char *n;
-
-	_audio_quit();
-
-	if (
-		// hm... this sucks! lol
-#ifdef SCHISM_SDL12
-		backend == &schism_audio_backend_sdl12 ||
-#endif
-#ifdef SCHISM_SDL2
-		backend == &schism_audio_backend_sdl2 ||
-#endif
-		0) {
-		/* we ought to allow this envvar to work under SDL */
-		n = getenv("SDL_AUDIODRIVER");
-		if (n && *n && _audio_driver_exists(n) && _audio_try_driver(n, device, verbose))
-			return 1;
-	}
-
-	for (int i = 0; i < full_drivers.size; i++) {
-		n = audio_driver_name(i);
-
-		if (_audio_try_driver(n, device, verbose))
-			return 1;
-	}
-
-	return 0;
-}
-
 // Set up audio_buffer, reset the sample count, and kick off the mixer
 // (note: _audio_open will leave the device LOCKED)
 static void _audio_init_tail(void)
@@ -1707,42 +1681,45 @@ int audio_init(const char *driver, const char *device)
 		: (!strcmp(driver, "directsound")) ? "dsound"
 		: driver;
 
+#if defined(SCHISM_SDL12) || defined(SCHISM_SDL2)
+	/* we ought to allow this envvar to work under SDL. */
+	if (!driver || !*driver)
+		driver = getenv("SDL_AUDIODRIVER");
+#endif
+
 	// Initialize all backends (for audio driver listing)
 	if (!backends_initialized) {
-		for (i = 0; backends[i]; i++) {
-			backend = backends[i]; // hax
-			if (backend->init())
-				inited_backends[i] = backend;
-			backend = NULL;
-		}
+		for (i = 0; backends[i]; i++)
+			if (backends[i]->init())
+				inited_backends[i] = backends[i];
+
 		_audio_create_drivers_list();
 		backends_initialized = 1;
 	}
 
-	if (_audio_driver_exists(driver)) {
-		for (i = 0; i < ARRAY_SIZE(inited_backends); i++) {
-			if (!inited_backends[i])
-				continue;
+	if (full_drivers.size > 0) {
+		if (driver && *driver) {
+			for (i = 0; i < full_drivers.size; i++) {
+				if (strcmp(full_drivers.list[i].name, driver))
+					continue;
 
-			backend = inited_backends[i]; // hax
-			if ((success = _audio_try_driver(driver, device, 1)))
+				backend = full_drivers.list[i].backend;
+				if ((success = _audio_try_driver(driver, device, 1)))
+					goto agh;
+				backend = NULL;
+			}
+
+			log_nl();
+			log_appendf(4, "Failed to load requested audio driver `%s`!", driver);
+		}
+
+		for (i = 0; i < full_drivers.size; i++) {
+			backend = full_drivers.list[i].backend;
+			if ((success = _audio_try_driver(full_drivers.list[i].name, device, 1)))
 				goto agh;
 			backend = NULL;
 		}
 	}
-
-	for (i = 0; i < ARRAY_SIZE(inited_backends); i++) {
-		if (!inited_backends[i])
-			continue;
-
-		backend = inited_backends[i]; // hax
-		if ((success = _audio_init_head(device, 1)))
-			goto agh;
-		backend = NULL;
-	}
-
-	// FIXME: Try again with no specific driver? or rather,
-	// add fallback stuff to the SDL 1.2 backend?
 
 agh:
 	if (success) {
@@ -1810,7 +1787,7 @@ void song_init_modplug(void)
 {
 	song_lock_audio();
 
-	max_voices = audio_settings.channel_limit;
+	current_song->max_voices = audio_settings.channel_limit;
 	csf_set_resampling_mode(current_song, audio_settings.interpolation_mode);
 	if (audio_settings.no_ramping)
 		current_song->mix_flags |= SNDMIX_NORAMPING;
@@ -1828,15 +1805,13 @@ void song_init_modplug(void)
 	audio_buffers_per_second = (current_song->mix_frequency / (audio_buffer_samples * 8 * audio_sample_size));
 	if (audio_buffers_per_second > 1) audio_buffers_per_second--;
 
+	csf_init_midi(current_song, _schism_midi_out_note, _schism_midi_out_raw);
+
 	song_unlock_audio();
 }
 
 void song_initialise(void)
 {
-	csf_midi_out_note = _schism_midi_out_note;
-	csf_midi_out_raw = _schism_midi_out_raw;
-
-
 	current_song = csf_allocate();
 
 	//song_stop(); <- song_new does this

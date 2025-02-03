@@ -493,6 +493,32 @@ typedef struct song_history {
 } song_history_t;
 
 ////////////////////////////////////////////////////////////////////
+// General MIDI structures
+
+typedef struct song_s3m_channel_info {
+	unsigned char note;    // Which note is playing in this channel (0 = nothing)
+	unsigned char patch;   // Which patch was programmed on this channel (&0x80 = percussion)
+	unsigned char bank;    // Which bank was programmed on this channel
+	signed char pan;       // Which pan level was last selected
+	signed char chan;      // Which MIDI channel was allocated for this channel. -1 = none
+	int32_t pref_chn_mask; // Which MIDI channel was preferred
+} song_s3m_channel_info_t;
+
+typedef struct song_midi_state {
+    unsigned char volume; // Which volume has been configured for this channel
+    unsigned char patch;  // What is the latest patch configured on this channel
+    unsigned char bank;   // What is the latest bank configured on this channel
+    int32_t bend;         // The latest pitchbend on this channel
+    signed char pan;      // Latest pan
+} song_midi_state_t;
+
+// forward declare `struct song` to bypass compiler warnings  -paper
+struct song;
+
+typedef void (*song_midi_out_note_spec_t)(struct song *csf, int chan, const song_note_t *m);
+typedef void (*song_midi_out_raw_spec_t)(struct song *csf, const unsigned char *msg, uint32_t msg_len, uint32_t buf_size);
+
+////////////////////////////////////////////////////////////////////
 
 typedef struct {
 	char start[32];
@@ -508,11 +534,8 @@ typedef struct {
 	char zxx[128][32];
 } midi_config_t;
 
+// XXX why are these extern? moreover, why is default_midi_config NOT const?
 extern midi_config_t default_midi_config;
-
-
-extern uint32_t max_voices;
-extern uint32_t global_vu_left, global_vu_right;
 
 extern const song_note_t blank_pattern[64 * 64];
 extern const song_note_t *blank_note;
@@ -566,6 +589,7 @@ typedef struct song {
 	uint32_t freq_factor; // not used -- for tweaking the song speed LP-style (interesting!)
 	uint32_t tempo_factor; // ditto
 	int32_t repeat_count; // 0 = first playback, etc. (note: set to -1 to stop instead of looping)
+
 	uint8_t row_highlight_major;
 	uint8_t row_highlight_minor;
 	char message[MAX_MESSAGE + 1];
@@ -580,11 +604,50 @@ typedef struct song {
 	size_t histlen; // How many session history data entries exist (each entry is eight bytes)
 	song_history_t *history; // Preserved entries from prior sessions, might be NULL if histlen = 0
 
-	song_history_t editstart; // When the song was loaded
+	song_history_t editstart; // When the song was loaded (pending addition to edit history)
 
-	// mixer stuff
+	// mixer stuff -----------------------------------------------------------
 	uint32_t mix_flags; // SNDMIX_*
 	uint32_t mix_frequency, mix_bits_per_sample, mix_channels;
+	uint32_t ramping_samples; // default: 64
+	uint32_t max_voices;
+	uint32_t vu_left;
+	uint32_t vu_right;
+	int32_t dry_rofs_vol; // un-globalized, didn't care enough
+	int32_t dry_lofs_vol; // to find out what these do  -paper
+	// -----------------------------------------------------------------------
+
+	// OPL stuff -------------------------------------------------------------
+	struct OPL *opl;
+	uint32_t oplretval;
+	uint32_t oplregno;
+	uint32_t opl_fm_active;
+
+	const unsigned char *opl_dtab[9];
+	unsigned char opl_keyontab[9];
+	int32_t opl_pans[MAX_VOICES];
+
+	int32_t opl_to_chan[9];
+	int32_t opl_from_chan[MAX_VOICES];
+	// -----------------------------------------------------------------------
+
+	// MIDI stuff ------------------------------------------------------------
+	/* This maps S3M concepts into MIDI concepts */
+	song_s3m_channel_info_t midi_s3m_chans[MAX_VOICES];
+	/* This helps reduce the MIDI traffic, also does some encapsulation */
+	song_midi_state_t midi_chans[16];
+	double midi_last_song_counter;
+
+	uint32_t midi_running_status;
+//#define GM_DEBUG
+#ifdef GM_DEBUG
+	int midi_resetting;
+#endif
+
+	/* MIDI callback functions */
+	song_midi_out_note_spec_t midi_out_note;
+	song_midi_out_raw_spec_t midi_out_raw;
+	// -----------------------------------------------------------------------
 
 	int patloop; // effects.c: need this for stupid pattern break compatibility
 
@@ -611,9 +674,6 @@ void csf_free_instrument(song_instrument_t *p);
 uint32_t csf_read_sample(song_sample_t *sample, uint32_t flags, slurp_t *fp);
 uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags, uint32_t maxlengthmask);
 void csf_adjust_sample_loop(song_sample_t *sample);
-
-extern void (*csf_midi_out_note)(int chan, const song_note_t *m);
-extern void (*csf_midi_out_raw)(const unsigned char *, uint32_t, uint32_t);
 
 void csf_import_mod_effect(song_note_t *m, int from_xm);
 uint16_t csf_export_mod_effect(const song_note_t *m, int xm);
@@ -648,6 +708,8 @@ int csf_set_wave_config(song_t *csf, uint32_t rate, uint32_t bits, uint32_t chan
 int32_t csf_init_player(song_t *csf, int reset); // bReset=false
 int csf_set_resampling_mode(song_t *csf, uint32_t mode); // SRCMODE_XXXX
 
+// Initialize MIDI callback functions
+void csf_init_midi(song_t *csf, song_midi_out_note_spec_t midi_out_note, song_midi_out_raw_spec_t midi_out_raw);
 
 // sndmix
 uint32_t csf_read(song_t *csf, void *v_buffer, uint32_t bufsize);
