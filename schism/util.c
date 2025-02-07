@@ -41,87 +41,16 @@ extraneous libraries (i.e. GLib). */
 /* --------------------------------------------------------------------- */
 /* CONVERSION FUNCTIONS */
 
-/* linear -> decibel */
-/* amplitude normalized to 1.0f. */
-double dB(double amplitude)
-{
-	return 20.0 * log10(amplitude);
-}
-
-/* decibel -> linear */
-double dB2_amp(double db)
-{
-	return pow(10.0, db / 20.0);
-}
-
-/* linear -> decibel */
-/* power normalized to 1.0f. */
-double pdB(double power)
-{
-	return 10.0 * log10(power);
-}
-
-/* decibel -> linear */
-double dB2_power(double db)
-{
-	return pow(10.0, db / 10.0);
-}
-/* linear -> decibel
- * amplitude normalized to 1.0f.
- * Output scaled (and clipped) to 128 lines with noisefloor range.
- * ([0..128] = [-noisefloor..0dB])
- * correction_dBs corrects the dB after converted, but before scaling.
-*/
-short dB_s(int noisefloor, double amplitude, double correction_dBs)
-{
-	double db = dB(amplitude) + correction_dBs;
-	return CLAMP((int)(128.0*(db+noisefloor))/noisefloor, 0, 127);
-}
-
-/* decibel -> linear */
-/* Input scaled to 128 lines with noisefloor range. */
-/* ([0..128] = [-noisefloor..0dB]) */
-/* amplitude normalized to 1.0f. */
-/* correction_dBs corrects the dB after converted, but before scaling.*/
-short dB2_amp_s(int noisefloor, int db, double correction_dBs)
-{
-	return dB2_amp((db*noisefloor/128.0)-noisefloor-correction_dBs);
-}
-/* linear -> decibel */
-/* power normalized to 1.0f. */
-/* Output scaled (and clipped) to 128 lines with noisefloor range. */
-/* ([0..128] = [-noisefloor..0dB]) */
-/* correction_dBs corrects the dB after converted, but before scaling.*/
-short pdB_s(int noisefloor, double power, double correction_dBs)
-{
-	float db = pdB(power)+correction_dBs;
-	return CLAMP((int)(128.0*(db+noisefloor))/noisefloor, 0, 127);
-}
-
-/* deciBell -> linear */
-/* Input scaled to 128 lines with noisefloor range. */
-/* ([0..128] = [-noisefloor..0dB]) */
-/* power normalized to 1.0f. */
-/* correction_dBs corrects the dB after converted, but before scaling.*/
-short dB2_power_s(int noisefloor, int db, double correction_dBs)
-{
-	return dB2_power((db*noisefloor/128.f)-noisefloor-correction_dBs);
-}
-
-/* fast integer sqrt */
-uint32_t i_sqrt(uint32_t r)
-{
-	uint32_t t, b, c=0;
-	for (b = 0x10000000; b != 0; b >>= 2) {
-		t = c + b;
-		c >>= 1;
-		if (t <= r) {
-			r -= t;
-			c += b;
-		}
-	}
-	return c;
-}
+/* inline stuff defined in math.h */
+extern inline float dB(float amplitude);
+extern inline float dB2_amp(float db);
+extern inline float pdB(float power);
+extern inline float dB2_power(float db);
+extern inline short dB_s(int noisefloor, float amplitude, float correction_dBs);
+extern inline short dB2_amp_s(int noisefloor, int db, float correction_dBs);
+extern inline short pdB_s(int noisefloor, float power, float correction_dBs);
+extern inline short dB2_power_s(int noisefloor, int db, float correction_dBs);
+extern inline uint32_t i_sqrt(uint32_t r);
 
 /* This function is roughly equivalent to the mkstemp() function on POSIX
  * operating systems, but instead of returning a file descriptor it returns

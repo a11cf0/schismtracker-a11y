@@ -86,7 +86,7 @@ scripts = \
 	scripts/palette.py
 
 EXTRA_DIST = \
-	include/auto/README		\
+	README.md include/auto/README	\
 	$(docs)	\
 	$(helptexts)			\
 	$(fonts)			\
@@ -473,7 +473,6 @@ schismtracker_SOURCES = \
 	player/fmpatches.c		\
 	player/mixer.c			\
 	player/mixutil.c		\
-	player/opl-util.c		\
 	player/snd_fm.c			\
 	player/snd_gm.c			\
 	player/sndmix.c			\

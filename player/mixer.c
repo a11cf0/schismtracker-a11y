@@ -409,7 +409,7 @@ typedef void(* mix_interface_t)(song_voice_t *, int32_t *, int32_t *);
 	}
 
 #define BEGIN_RESAMPLE_INTERFACE(func, sampletype, numchannels) \
-	void func(sampletype *oldbuf, sampletype *newbuf, uint32_t oldlen, uint32_t newlen) \
+	SCHISM_SIMD void func(sampletype *oldbuf, sampletype *newbuf, uint32_t oldlen, uint32_t newlen) \
 	{ \
 		uint32_t position = 0; \
 		const sampletype *p = oldbuf; \
@@ -710,7 +710,7 @@ uint32_t csf_create_stereo_mix(song_t *csf, uint32_t count)
 		int32_t nsamples;
 		int32_t *pbuffer;
 
-		if (!channel->current_sample_data)
+		if (!channel->current_sample_data && !channel->lofs && !channel->rofs)
 			continue;
 
 		ofsr = &csf->dry_rofs_vol;
