@@ -37,7 +37,7 @@ mkdir -p "$PREFIX/bin" "$PREFIX/lib" "$PREFIX/share/applications" "$PREFIX/share
 
 # basic binary stuff
 cp "$SCRIPTPATH/schismtracker" "$PREFIX/bin/schismtracker"
-for i in FLAC.so.8 utf8proc.so.2.3.2 ogg.so.0; do
+for i in FLAC.so.8 utf8proc.so.2 ogg.so.0; do
 	cp "$SCRIPTPATH/lib$i" "$PREFIX/lib/lib$i"
 done
 
@@ -47,6 +47,8 @@ cp "$SCRIPTPATH/schismtracker.1" "$PREFIX/share/man/man1/schismtracker.1"
 cp "$SCRIPTPATH/schism-icon-128.png" "$PREFIX/share/pixmaps/schism-icon-128.png"
 
 if test "x$INSTALL_USR_LOCAL_FILES" = "xyes" && ! test "x$PREFIX" = "x/usr/local"; then
+	mkdir -p "/usr/local/bin" "/usr/local/share/applications" "/usr/local/share/pixmaps" "/usr/local/share/man/man1"
+
 	cat<<EOF > "/usr/local/bin/schismtracker"
 #!/bin/sh
 
