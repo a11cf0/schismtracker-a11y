@@ -21,42 +21,55 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "headers.h"
-#include "mt.h"
+#include "headers.h" /* always include this one first, kthx */
+#include "backend/dmoz.h"
+#include "mem.h"
 
-static mt_mutex_t *localtime_r_mutex = NULL;
-static int initialized = 0;
+#include "init.h"
 
-void localtime_r_quit(void)
+static const char * (SDLCALL *sdl3_GetBasePath)(void);
+
+static char *sdl3_dmoz_get_exe_path(void)
 {
-	mt_mutex_delete(localtime_r_mutex);
+	const char *sdl = sdl3_GetBasePath();
+	if (!sdl)
+		return NULL;
+
+	char *us = str_dup(sdl);
+	return us;
 }
 
-int localtime_r_init(void)
+//////////////////////////////////////////////////////////////////////////////
+// dynamic loading
+
+static int sdl3_dmoz_load_syms(void)
 {
-	localtime_r_mutex = mt_mutex_create();
-	if (!localtime_r_mutex)
+	SCHISM_SDL3_SYM(GetBasePath);
+
+	return 0;
+}
+
+static int sdl3_dmoz_init(void)
+{
+	if (!sdl3_init())
 		return 0;
 
-	initialized = 1;
+	if (sdl3_dmoz_load_syms())
+		return 0;
 
 	return 1;
 }
 
-struct tm *localtime_r(const time_t *timep, struct tm *result)
+static void sdl3_dmoz_quit(void)
 {
-	static struct tm *our_tm;
-
-	// huh?
-	if (!initialized)
-		return NULL;
-
-	mt_mutex_lock(localtime_r_mutex);
-
-	our_tm = localtime(timep);
-	*result = *our_tm;
-
-	mt_mutex_unlock(localtime_r_mutex);
-
-	return result;
+	sdl3_quit();
 }
+
+//////////////////////////////////////////////////////////////////////////////
+
+const schism_dmoz_backend_t schism_dmoz_backend_sdl3 = {
+	.init = sdl3_dmoz_init,
+	.quit = sdl3_dmoz_quit,
+
+	.get_exe_path = sdl3_dmoz_get_exe_path,
+};

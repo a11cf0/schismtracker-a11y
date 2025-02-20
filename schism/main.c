@@ -50,7 +50,7 @@
 #include "accessibility.h"
 #include "fmt.h"
 #include "timer.h"
-#include "threads.h"
+#include "mt.h"
 #include "mem.h"
 
 #include "osdefs.h"
@@ -834,10 +834,9 @@ SCHISM_NORETURN static void event_loop(void)
 		 * as long as there's no user-event going on... */
 		while (!(status.flags & NEED_UPDATE) && dmoz_worker() && !events_have_event());
 
-		/* delay until there's an event OR 10 ms have passed */
-		int t;
-		for (t = 0; t < 10 && !events_have_event(); t++)
-			timer_msleep(1);
+		/* sleep for a little bit to not hog CPU time */
+		if (!events_have_event())
+			timer_msleep(5);
 	}
 	
 	schism_exit(0);

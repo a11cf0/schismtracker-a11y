@@ -33,6 +33,7 @@ typedef struct {
 	timer_ticks_t (*ticks)(void);
 	timer_ticks_t (*ticks_us)(void);
 	void (*usleep)(uint64_t us);
+	void (*msleep)(uint32_t ms);
 
 	// returns 1 if a timer was successful
 	// or 0 if we have to emulate it
@@ -47,6 +48,9 @@ extern const schism_timer_backend_t schism_timer_backend_sdl12;
 #endif
 #ifdef SCHISM_SDL2
 extern const schism_timer_backend_t schism_timer_backend_sdl2;
+#endif
+#ifdef SCHISM_SDL3
+extern const schism_timer_backend_t schism_timer_backend_sdl3;
 #endif
 
 #endif /* SCHISM_BACKEND_TIMER_H_ */

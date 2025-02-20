@@ -27,7 +27,7 @@
 
 #include "headers.h"
 #include "charset.h"
-#include "threads.h"
+#include "mt.h"
 #include "mem.h"
 #include "osdefs.h"
 #include "backend/audio.h"
@@ -211,7 +211,7 @@ static int waveout_audio_thread(void *data)
 {
 	schism_audio_device_t *dev = data;
 
-	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+	mt_thread_set_priority(MT_THREAD_PRIORITY_TIME_CRITICAL);
 
 	while (!dev->cancelled) {
 		// FIXME add a timeout here

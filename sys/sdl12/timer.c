@@ -22,7 +22,7 @@
  */
 
 #include "headers.h"
-#include "threads.h"
+#include "mt.h"
 #include "mem.h"
 #include "backend/timer.h"
 
@@ -34,36 +34,25 @@ static uint32_t (SDLCALL *sdl12_GetTicks)(void);
 static void (SDLCALL *sdl12_Delay)(uint32_t ms);
 static SDL_TimerID (SDLCALL *sdl12_AddTimer)(uint32_t ms, SDL_NewTimerCallback callback, void *param);
 
-static mt_mutex_t *last_known_ticks_mutex = NULL;
-static uint32_t last_known_ticks = 0;
-static uint32_t ticks_overflow = 0;
-
 static timer_ticks_t sdl12_timer_ticks(void)
 {
-	timer_ticks_t ticks = sdl12_GetTicks();
-
-	mt_mutex_lock(last_known_ticks_mutex);
-
-	if (ticks < last_known_ticks)
-		ticks_overflow++;
-	last_known_ticks = ticks;
-
-	ticks |= ((uint64_t)ticks_overflow << 32);
-
-	mt_mutex_unlock(last_known_ticks_mutex);
-
-	return ticks;
+	return sdl12_GetTicks();
 }
 
 static timer_ticks_t sdl12_timer_ticks_us(void)
 {
 	// wow
-	return sdl12_timer_ticks() * UINT64_C(1000);
+	return sdl12_timer_ticks() * 1000LL;
 }
 
-static void sdl12_usleep(uint64_t ms)
+static void sdl12_usleep(uint64_t us)
 {
-	sdl12_Delay(ms / 1000);
+	sdl12_Delay(us / 1000);
+}
+
+static void sdl12_msleep(uint32_t ms)
+{
+	sdl12_Delay(ms);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -124,10 +113,6 @@ static int sdl12_timer_init(void)
 	if (sdl12_InitSubSystem(SDL_INIT_TIMER) < 0)
 		return 0;
 
-	last_known_ticks_mutex = mt_mutex_create();
-	if (!last_known_ticks_mutex)
-		return 0;
-
 	return 1;
 }
 
@@ -147,6 +132,7 @@ const schism_timer_backend_t schism_timer_backend_sdl12 = {
 	.ticks = sdl12_timer_ticks,
 	.ticks_us = sdl12_timer_ticks_us,
 	.usleep = sdl12_usleep,
+	.msleep = sdl12_msleep,
 
 	.oneshot = sdl12_timer_oneshot,
 };

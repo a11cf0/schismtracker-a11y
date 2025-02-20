@@ -21,7 +21,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* Predominantly this file is keyboard crap, but we also get the network configured here */
+/* WOW this file got ugly */
 
 #include "headers.h"
 
@@ -74,8 +74,269 @@
 #define IDM_SETTINGS_FONT_EDITOR 604
 #define IDM_SETTINGS_SYSTEM_CONFIGURATION 605
 
+// MinGW32 doesn't have <vsstyles.h> nor <uxtheme.h> ------
+
+typedef int (WINAPI *DTT_CALLBACK_PROC)(HDC,LPWSTR,int,RECT*,UINT,LPARAM);
+
+typedef struct _DTTOPTS {
+    DWORD dwSize;
+    DWORD dwFlags;
+    COLORREF crText;
+    COLORREF crBorder;
+    COLORREF crShadow;
+    int iTextShadowType;
+    POINT ptShadowOffset;
+    int iBorderSize;
+    int iFontPropId;
+    int iColorPropId;
+    int iStateId;
+    BOOL fApplyOverlay;
+    int iGlowSize;
+    DTT_CALLBACK_PROC pfnDrawTextCallback;
+    LPARAM lParam;
+} DTTOPTS, *PDTTOPTS;
+
+/* DTTOPTS.dwFlags bits */
+#ifndef DTT_TEXTCOLOR
+#define DTT_TEXTCOLOR    0x00000001
+#endif
+#ifndef DTT_BORDERCOLOR
+#define DTT_BORDERCOLOR  0x00000002
+#endif
+#ifndef DTT_SHADOWCOLOR
+#define DTT_SHADOWCOLOR  0x00000004
+#endif
+#ifndef DTT_SHADOWTYPE
+#define DTT_SHADOWTYPE   0x00000008
+#endif
+#ifndef DTT_SHADOWOFFSET
+#define DTT_SHADOWOFFSET 0x00000010
+#endif
+#ifndef DTT_BORDERSIZE
+#define DTT_BORDERSIZE   0x00000020
+#endif
+#ifndef DTT_FONTPROP
+#define DTT_FONTPROP     0x00000040
+#endif
+#ifndef DTT_COLORPROP
+#define DTT_COLORPROP    0x00000080
+#endif
+#ifndef DTT_STATEID
+#define DTT_STATEID      0x00000100
+#endif
+#ifndef DTT_CALCRECT
+#define DTT_CALCRECT     0x00000200
+#endif
+#ifndef DTT_APPLYOVERLAY
+#define DTT_APPLYOVERLAY 0x00000400
+#endif
+#ifndef DTT_GLOWSIZE
+#define DTT_GLOWSIZE     0x00000800
+#endif
+#ifndef DTT_CALLBACK
+#define DTT_CALLBACK     0x00001000
+#endif
+#ifndef DTT_COMPOSITED
+#define DTT_COMPOSITED   0x00002000
+#endif
+#ifndef DTT_VALIDBITS
+#define DTT_VALIDBITS    0x00003fff
+#endif
+
+#ifndef ODS_SELECTED
+#define ODS_SELECTED     0x0001 /* Selected */
+#endif
+#ifndef ODS_GRAYED
+#define ODS_GRAYED       0x0002 /* Grayed (Menus only) */
+#endif
+#ifndef ODS_DISABLED
+#define ODS_DISABLED     0x0004 /* Disabled */
+#endif
+#ifndef ODS_CHECKED
+#define ODS_CHECKED      0x0008 /* Checked (Menus only) */
+#endif
+#ifndef ODS_FOCUS
+#define ODS_FOCUS        0x0010 /* Has focus */
+#endif
+#ifndef ODS_DEFAULT
+#define ODS_DEFAULT      0x0020 /* Default */
+#endif
+#ifndef ODS_HOTLIGHT
+#define ODS_HOTLIGHT     0x0040 /* Highlighted when under mouse */
+#endif
+#ifndef ODS_INACTIVE
+#define ODS_INACTIVE     0x0080 /* Inactive */
+#endif
+#ifndef ODS_NOACCEL
+#define ODS_NOACCEL      0x0100 /* No keyboard accelerator */
+#endif
+#ifndef ODS_NOFOCUSRECT
+#define ODS_NOFOCUSRECT  0x0200 /* No focus rectangle */
+#endif
+#ifndef ODS_COMBOBOXEDIT
+#define ODS_COMBOBOXEDIT 0x1000 /* Edit of a combo box */
+#endif
+
+#ifndef DT_TOP
+#define DT_TOP                  0x00000000
+#endif
+#ifndef DT_LEFT
+#define DT_LEFT                 0x00000000
+#endif
+#ifndef DT_CENTER
+#define DT_CENTER               0x00000001
+#endif
+#ifndef DT_RIGHT
+#define DT_RIGHT                0x00000002
+#endif
+#ifndef DT_VCENTER
+#define DT_VCENTER              0x00000004
+#endif
+#ifndef DT_BOTTOM
+#define DT_BOTTOM               0x00000008
+#endif
+#ifndef DT_WORDBREAK
+#define DT_WORDBREAK            0x00000010
+#endif
+#ifndef DT_SINGLELINE
+#define DT_SINGLELINE           0x00000020
+#endif
+#ifndef DT_EXPANDTABS
+#define DT_EXPANDTABS           0x00000040
+#endif
+#ifndef DT_TABSTOP
+#define DT_TABSTOP              0x00000080
+#endif
+#ifndef DT_NOCLIP
+#define DT_NOCLIP               0x00000100
+#endif
+#ifndef DT_EXTERNALLEADING
+#define DT_EXTERNALLEADING      0x00000200
+#endif
+#ifndef DT_CALCRECT
+#define DT_CALCRECT             0x00000400
+#endif
+#ifndef DT_NOPREFIX
+#define DT_NOPREFIX             0x00000800
+#endif
+#ifndef DT_INTERNAL
+#define DT_INTERNAL             0x00001000
+#endif
+#ifndef DT_EDITCONTROL
+#define DT_EDITCONTROL          0x00002000
+#endif
+#ifndef DT_PATH_ELLIPSIS
+#define DT_PATH_ELLIPSIS        0x00004000
+#endif
+#ifndef DT_END_ELLIPSIS
+#define DT_END_ELLIPSIS         0x00008000
+#endif
+#ifndef DT_MODIFYSTRING
+#define DT_MODIFYSTRING         0x00010000
+#endif
+#ifndef DT_RTLREADING
+#define DT_RTLREADING           0x00020000
+#endif
+#ifndef DT_WORD_ELLIPSIS
+#define DT_WORD_ELLIPSIS        0x00040000
+#endif
+#ifndef DT_NOFULLWIDTHCHARBREAK
+#define DT_NOFULLWIDTHCHARBREAK 0x00080000
+#endif
+#ifndef DT_HIDEPREFIX
+#define DT_HIDEPREFIX           0x00100000
+#endif
+#ifndef DT_PREFIXONLY
+#define DT_PREFIXONLY           0x00200000
+#endif
+
+enum BARITEMSTATES {
+    MBI_NORMAL = 1,
+    MBI_HOT = 2,
+    MBI_PUSHED = 3,
+    MBI_DISABLED = 4,
+    MBI_DISABLEDHOT = 5,
+    MBI_DISABLEDPUSHED = 6,
+};
+
+enum MENUPARTS {
+    MENU_MENUITEM_TMSCHEMA = 1,
+    MENU_MENUDROPDOWN_TMSCHEMA = 2,
+    MENU_MENUBARITEM_TMSCHEMA = 3,
+    MENU_MENUBARDROPDOWN_TMSCHEMA = 4,
+    MENU_CHEVRON_TMSCHEMA = 5,
+    MENU_SEPARATOR_TMSCHEMA = 6,
+    MENU_BARBACKGROUND = 7,
+    MENU_BARITEM = 8,
+    MENU_POPUPBACKGROUND = 9,
+    MENU_POPUPBORDERS = 10,
+    MENU_POPUPCHECK = 11,
+    MENU_POPUPCHECKBACKGROUND = 12,
+    MENU_POPUPGUTTER = 13,
+    MENU_POPUPITEM = 14,
+    MENU_POPUPSEPARATOR = 15,
+    MENU_POPUPSUBMENU = 16,
+    MENU_SYSTEMCLOSE = 17,
+    MENU_SYSTEMMAXIMIZE = 18,
+    MENU_SYSTEMMINIMIZE = 19,
+    MENU_SYSTEMRESTORE = 20,
+};
+
+// This sucks
+#define HTHEME HANDLE
+
+// --------------------------------------------------------
+
+typedef enum {
+    WCA_UNDEFINED = 0,
+    WCA_USEDARKMODECOLORS = 26,
+    WCA_LAST = 27
+} WINDOWCOMPOSITIONATTRIB;
+
+typedef struct {
+    WINDOWCOMPOSITIONATTRIB Attrib;
+    PVOID pvData;
+    SIZE_T cbData;
+} WINDOWCOMPOSITIONATTRIBDATA;
+
 /* global menu object */
 static HMENU menu = NULL;
+
+/* used for dark theme crap. */
+static void *lib_dwmapi = NULL;
+static HRESULT (WINAPI *DWMAPI_DwmSetWindowAttribute)(HWND hwnd, DWORD key, LPCVOID data, DWORD sz_data) = NULL;
+
+static void *lib_user32 = NULL;
+static BOOL (WINAPI *USER32_SetWindowCompositionAttribute)(HWND, const WINDOWCOMPOSITIONATTRIBDATA *) = NULL;
+static BOOL (WINAPI *USER32_GetMenuItemInfoW)(HMENU, UINT, BOOL, LPMENUITEMINFOW);
+static BOOL (WINAPI *USER32_GetMenuBarInfo)(HWND, LONG, LONG, PMENUBARINFO);
+
+/* `bool`, which is 1 byte, call that `unsigned char` ;) */
+static void *lib_uxtheme = NULL;
+static unsigned char (WINAPI *UXTHEME_ShouldAppsUseDarkMode)(void) = NULL;
+static unsigned char (WINAPI *UXTHEME_AllowDarkModeForWindow)(HWND hwnd, unsigned char allow) = NULL;
+static void (WINAPI *UXTHEME_AllowDarkModeForApp)(unsigned char allow) = NULL; // v1809
+static DWORD (WINAPI *UXTHEME_SetPreferredAppMode)(DWORD app_mode) = NULL; // v1903
+static HTHEME (WINAPI *UXTHEME_OpenThemeData)(HWND hwnd, LPCWSTR pszClassList) = NULL;
+static HRESULT (WINAPI *UXTHEME_DrawThemeTextEx)(HTHEME hTheme, HDC hdc, int iPartId, int iStateId, LPCWSTR pszText, int cchText, DWORD dwTextFlags, LPRECT pRect, const DTTOPTS *pOptions) = NULL;
+static void (WINAPI *UXTHEME_RefreshImmersiveColorPolicyState)(void) = NULL;
+#define APPMODE_DEFAULT    0
+#define APPMODE_ALLOWDARK  1
+#define APPMODE_FORCEDARK  2
+#define APPMODE_FORCELIGHT 3
+
+static void *lib_ntdll = NULL;
+static long /*NTSTATUS*/ (WINAPI *NTDLL_RtlGetVersion)(OSVERSIONINFOEXW *info) = NULL;
+
+// Set on video startup.
+static int win32_dark_mode_enabled = 0;
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE_OLD
+# define DWMWA_USE_IMMERSIVE_DARK_MODE_OLD 19
+#endif
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+# define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
 
 void win32_get_modkey(schism_keymod_t *mk)
 {
@@ -209,6 +470,52 @@ void win32_sysinit(SCHISM_UNUSED int *pargc, SCHISM_UNUSED char ***pargv)
 	win32mf_init();
 #endif
 
+	lib_ntdll = loadso_object_load("ntdll.dll");
+	if (lib_ntdll) {
+		NTDLL_RtlGetVersion = loadso_function_load(lib_ntdll, "RtlGetVersion");
+	}
+
+	// Load dark mode cruft
+	if (win32_ntver_atleast(10, 0, 17763)) {
+		lib_dwmapi = loadso_object_load("dwmapi.dll");
+		if (lib_dwmapi) {
+			DWMAPI_DwmSetWindowAttribute = loadso_function_load(lib_dwmapi, "DwmSetWindowAttribute");
+		}
+
+		lib_uxtheme = loadso_object_load("uxtheme.dll");
+		if (lib_uxtheme) {
+			// Just in case MS decides to actually export these functions, I'm attempting
+			// to load functions by name before trying exact ordinals.
+#define LOAD_UNDOCUMENTED_FUNC(name, ordinal) \
+	do { \
+		UXTHEME_##name = loadso_function_load(lib_uxtheme, #name); \
+		if (!UXTHEME_##name) UXTHEME_##name = loadso_function_load(lib_uxtheme, MAKEINTRESOURCEA(ordinal)); \
+	} while (0)
+
+			LOAD_UNDOCUMENTED_FUNC(RefreshImmersiveColorPolicyState, 104);
+			LOAD_UNDOCUMENTED_FUNC(ShouldAppsUseDarkMode, 132);
+			LOAD_UNDOCUMENTED_FUNC(AllowDarkModeForWindow, 133);
+			UXTHEME_OpenThemeData = loadso_function_load(lib_uxtheme, "OpenThemeData");
+			UXTHEME_DrawThemeTextEx = loadso_function_load(lib_uxtheme, "DrawThemeTextEx");
+
+			// SDL 3 enables dark mode, even when we don't want it.
+			if (win32_ntver_atleast(10, 0, 18362)) {
+				LOAD_UNDOCUMENTED_FUNC(SetPreferredAppMode, 135);
+			} else {
+				LOAD_UNDOCUMENTED_FUNC(AllowDarkModeForApp, 135);
+			}
+
+#undef LOAD_UNDOCUMENTED_FUNC
+		}
+
+		lib_user32 = loadso_object_load("user32.dll");
+		if (lib_user32) {
+			USER32_SetWindowCompositionAttribute = loadso_function_load(lib_user32, "SetWindowCompositionAttribute");
+			USER32_GetMenuItemInfoW = loadso_function_load(lib_user32, "GetMenuItemInfoW");
+			USER32_GetMenuBarInfo = loadso_function_load(lib_user32, "GetMenuBarInfo");
+		}
+	}
+
 	/* Convert command line arguments to UTF-8 */
 	{
 		char **utf8_argv;
@@ -258,6 +565,189 @@ void win32_sysexit(void)
 #ifdef USE_MEDIAFOUNDATION
 	win32mf_quit();
 #endif
+
+	if (lib_dwmapi)
+		loadso_object_unload(lib_dwmapi);
+
+	if (lib_uxtheme)
+		loadso_object_unload(lib_uxtheme);
+
+	if (lib_ntdll)
+		loadso_object_unload(lib_ntdll);
+
+	if (lib_user32)
+		loadso_object_unload(lib_user32);
+}
+
+static LRESULT (CALLBACK *old_wndproc)(HWND, UINT, WPARAM, LPARAM) = NULL;
+
+//
+// Hijacked from wxWidgets
+// Copyright (c) 2022 Vadim Zeitlin <vadim@wxwidgets.org>
+//
+static LRESULT CALLBACK win32_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	if (!win32_dark_mode_enabled)
+		return old_wndproc(hwnd, msg, wparam, lparam);
+
+#ifndef WM_MENUBAR_DRAWMENUITEM
+# define WM_MENUBAR_DRAWMENUITEM 0x92
+#endif
+#ifndef WM_MENUBAR_DRAWMENU
+# define WM_MENUBAR_DRAWMENU 0x91
+#endif
+
+	// This is passed via LPARAM of WM_MENUBAR_DRAWMENU.
+	struct MenuBarDrawMenu {
+		HMENU hmenu;
+		HDC hdc;
+		DWORD dwReserved;
+	};
+
+	struct MenuBarMenuItem {
+		int iPosition;
+
+		// There are more fields in this (undocumented) struct but we don't
+		// currently need them, so don't bother with declaring them.
+	};
+
+	struct MenuBarDrawMenuItem {
+		DRAWITEMSTRUCT dis;
+		struct MenuBarDrawMenu mbdm;
+		struct MenuBarMenuItem mbmi;
+	};
+
+	switch (msg) {
+	case WM_NCPAINT:
+	case WM_NCACTIVATE: {
+		// Drawing the menu bar background in WM_MENUBAR_DRAWMENU somehow
+		// leaves a single pixel line unpainted (and increasing the size of
+		// the rectangle doesn't help, i.e. drawing is clipped to an area
+		// which is one pixel too small), so we have to draw over it here
+		// to get rid of it.
+	
+		LRESULT result = DefWindowProc(hwnd, msg, wparam, lparam);
+
+		// Create a RECT one pixel above the client area: note that we
+		// have to use window (and not client) coordinates for this as
+		// this is outside of the client area of the window.
+		RECT rcWindow, rc;
+		if (!GetWindowRect(hwnd, &rcWindow) || !GetClientRect(hwnd, &rc))
+			break;
+
+		// Convert client coordinates to window ones.
+		MapWindowPoints(hwnd, HWND_DESKTOP, (LPPOINT)&rc, 2);
+		OffsetRect(&rc, -rcWindow.left, -rcWindow.top);
+
+		rc.bottom = rc.top;
+		rc.top--;
+
+		HDC hdc = GetWindowDC(hwnd);
+		HBRUSH hbr = CreateSolidBrush(0x2B2B2B);
+		FillRect(hdc, &rc, hbr);
+		DeleteObject(hbr);
+		ReleaseDC(hwnd, hdc);
+
+		return result;
+	}
+	case WM_MENUBAR_DRAWMENU: {
+		// Erase the menu bar background using custom brush.
+		struct MenuBarDrawMenu *drawmenu = (struct MenuBarDrawMenu *)lparam;
+		
+		if (drawmenu) {
+			MENUBARINFO mbi = {.cbSize = sizeof(MENUBARINFO)};
+			if (!USER32_GetMenuBarInfo || !USER32_GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi))
+				break;
+
+			RECT rcWindow;
+			if (!GetWindowRect(hwnd, &rcWindow))
+				break;
+
+			// rcBar is expressed in screen coordinates.
+			OffsetRect(&mbi.rcBar, -rcWindow.left, -rcWindow.top);
+
+			HBRUSH hbr = CreateSolidBrush(0x2B2B2B);
+			FillRect(drawmenu->hdc, &mbi.rcBar, hbr);
+			DeleteObject(hbr);
+		}
+
+		return 1;
+	}
+	case WM_MENUBAR_DRAWMENUITEM: {
+		struct MenuBarDrawMenuItem *drawmenuitem = (struct MenuBarDrawMenuItem *)lparam;
+
+		if (drawmenuitem) {
+			// Just a sanity check.
+			if (drawmenuitem->dis.CtlType != ODT_MENU)
+				break;
+
+			WCHAR buf[256];
+			MENUITEMINFOW mii = {
+				.cbSize = sizeof(MENUITEMINFOW),
+				.fMask = MIIM_STRING,
+				.dwTypeData = buf,
+				.cch = sizeof(buf) - 2,
+			};
+
+			// Note that we need to use the iPosition field of the
+			// undocumented struct here because DRAWITEMSTRUCT::itemID is
+			// not initialized in the struct passed to us here, so this is
+			// the only way to identify the item we're dealing with.
+			if (!USER32_GetMenuItemInfoW || !USER32_GetMenuItemInfoW((HMENU)drawmenuitem->dis.hwndItem, drawmenuitem->mbmi.iPosition, TRUE, &mii))
+				break;
+
+			const UINT itemState = drawmenuitem->dis.itemState;
+
+			int partState;
+			uint32_t colText = 0xFFFFFF, colBg = 0x2b2b2b;
+			if (itemState & ODS_INACTIVE) {
+				partState = MBI_DISABLED;
+				colText = 0x6D6D6D;
+			} else if ((itemState & (ODS_GRAYED|ODS_HOTLIGHT)) == (ODS_GRAYED|ODS_HOTLIGHT)) {
+				partState = MBI_DISABLEDHOT;
+			} else if (itemState & ODS_GRAYED ) {
+				partState = MBI_DISABLED;
+				colText = 0x6D6D6D;
+			} else if (itemState & (ODS_HOTLIGHT | ODS_SELECTED)) {
+				partState = MBI_HOT;
+				colBg = 0x414141;
+			} else {
+				partState = MBI_NORMAL;
+			}
+
+			// Don't use DrawThemeBackground() here, as it doesn't use the
+			// correct colours in the dark mode, at least not when using
+			// the "Menu" theme.
+			{
+				HBRUSH hbr = CreateSolidBrush(colBg);
+				FillRect(drawmenuitem->dis.hDC, &drawmenuitem->dis.rcItem, hbr);
+				DeleteObject(hbr);
+			}
+
+			// We have to specify the text colour explicitly as by default
+			// black would be used, making the menu label unreadable on the
+			// (almost) black background.
+			DTTOPTS textOpts;
+			textOpts.dwSize = sizeof(textOpts);
+			textOpts.dwFlags = DTT_TEXTCOLOR;
+			textOpts.crText = colText;
+
+			DWORD drawTextFlags = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
+			if (itemState & ODS_NOACCEL)
+				drawTextFlags |= DT_HIDEPREFIX;
+
+			HTHEME theme = UXTHEME_OpenThemeData(hwnd, L"Menu");
+			UXTHEME_DrawThemeTextEx(theme, drawmenuitem->dis.hDC, MENU_BARITEM, partState,
+							  buf, mii.cch, drawTextFlags, &drawmenuitem->dis.rcItem,
+							  &textOpts);
+		}
+		return 0;
+	}
+	default:
+		break;
+	}
+
+	return old_wndproc(hwnd, msg, wparam, lparam);
 }
 
 int win32_event(schism_event_t *event)
@@ -415,10 +905,68 @@ int win32_event(schism_event_t *event)
 	return 1;
 }
 
+// TODO: Check for changes in theme settings.
+static inline SCHISM_ALWAYS_INLINE void win32_toggle_dark_title_bar(void *window, int on)
+{
+	// wow
+	win32_dark_mode_enabled = (on && (UXTHEME_ShouldAppsUseDarkMode && UXTHEME_ShouldAppsUseDarkMode()));
+
+	const BOOL b = win32_dark_mode_enabled;
+
+	if (DWMAPI_DwmSetWindowAttribute) {
+		// Initialize dark theme on title bar. 20 is used on newer versions of Windows 10,
+		// but 19 was used before they switched to 20 for some reason.
+		if (FAILED(DWMAPI_DwmSetWindowAttribute((HWND)window, 20, &b, sizeof(b))))
+			DWMAPI_DwmSetWindowAttribute((HWND)window, 19, &b, sizeof(b));
+	}
+
+	if (UXTHEME_AllowDarkModeForWindow) {
+		UXTHEME_AllowDarkModeForWindow((HWND)window, on);
+	}
+
+	if (win32_ntver_atleast(10, 0, 18362)) {
+		BOOL v = b; // this value isn't const ?
+		if (USER32_SetWindowCompositionAttribute) {
+			WINDOWCOMPOSITIONATTRIBDATA data = { WCA_USEDARKMODECOLORS, &v, sizeof(v) };
+			USER32_SetWindowCompositionAttribute((HWND)window, &data);
+		}
+	} else if (win32_ntver_atleast(10, 0, 17763)) {
+		SetPropW((HWND)window, L"UseImmersiveDarkModeColors", (HANDLE)(INT_PTR)on);
+	}
+
+	if (UXTHEME_SetPreferredAppMode) // 1904
+		UXTHEME_SetPreferredAppMode(b ? APPMODE_FORCEDARK : APPMODE_FORCELIGHT);
+	else if (UXTHEME_AllowDarkModeForApp) // old win10
+		UXTHEME_AllowDarkModeForApp(b);
+
+	if (UXTHEME_RefreshImmersiveColorPolicyState)
+		UXTHEME_RefreshImmersiveColorPolicyState();
+}
+
 void win32_toggle_menu(void *window, int on)
 {
+	// hax
+	static int init = 0;
 	SetMenu((HWND)window, (cfg_video_want_menu_bar && on) ? menu : NULL);
 	DrawMenuBar((HWND)window);
+
+	if (!init) {
+		init = 1;
+
+		// Enable Dark Mode support on Windows 10 >= 1809
+		if (win32_ntver_atleast(10, 0, 17763)) {
+			const BOOL unicode = IsWindowUnicode((HWND)window);
+
+			win32_toggle_dark_title_bar(window, 1);
+
+			old_wndproc = (WNDPROC)(unicode ? GetWindowLongPtrW : GetWindowLongPtrA)((HWND)window, GWLP_WNDPROC);
+			(void)(unicode ? SetWindowLongPtrW : SetWindowLongPtrA)((HWND)window, GWLP_WNDPROC, (LONG_PTR)win32_wndproc);
+		} else {
+			// SDL 3 sets this to true, even on older versions, which means the
+			// color of the menu bar and title bar clash. Reset it to zero.
+			win32_toggle_dark_title_bar(window, 0);
+		}
+	}
 }
 
 /* -------------------------------------------------------------------- */
@@ -477,17 +1025,30 @@ int win32_get_key_repeat(int *pdelay, int *prate)
 /* -------------------------------------------------------------------- */
 
 // Checks for at least some NT kernel version.
-// Note that this does NOT work for checking above Windows 8.1 because
-// Microsoft. This also fails for Windows 9x, because it doesn't
-// have an NT kernel at all.
+// Calls NTDLL.DLL directly because Microsoft artificially
+// caps GetVersion() to Windows 8.1 for some reason.
 int win32_ntver_atleast(int major, int minor, int build)
 {
-	DWORD version = GetVersion();
-	if (version & 0x80000000)
-		return 0;
+	// why the hell do they have to make this so difficult?
+	union {
+		OSVERSIONINFOA a;
+		OSVERSIONINFOEXW w;
+	} ver;
 
-	return SCHISM_SEMVER_ATLEAST(major, minor, build,
-		LOBYTE(LOWORD(version)), HIBYTE(LOWORD(version)), HIWORD(version));
+	ver.w.dwOSVersionInfoSize = sizeof(ver.w);
+	if (NTDLL_RtlGetVersion && !NTDLL_RtlGetVersion(&ver.w)) {
+		return SCHISM_SEMVER_ATLEAST(major, minor, build,
+			ver.w.dwMajorVersion, ver.w.dwMinorVersion, ver.w.dwBuildNumber);
+	}
+
+	// fallback to GetVersionExA
+	ver.a.dwOSVersionInfoSize = sizeof(ver.a);
+	if (GetVersionExA(&ver.a) && ver.a.dwPlatformId == VER_PLATFORM_WIN32_NT)
+		return SCHISM_SEMVER_ATLEAST(major, minor, build,
+			ver.a.dwMajorVersion, ver.a.dwMinorVersion, ver.a.dwBuildNumber);
+
+	// Probably win9x or something.
+	return 0;
 }
 
 /* -------------------------------------------------------------------- */

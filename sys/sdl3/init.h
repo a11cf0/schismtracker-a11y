@@ -21,42 +21,32 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#ifndef SCHISM_SYS_SDL3_INIT_H_
+#define SCHISM_SYS_SDL3_INIT_H_
+
 #include "headers.h"
-#include "mt.h"
 
-static mt_mutex_t *localtime_r_mutex = NULL;
-static int initialized = 0;
+#include <SDL3/SDL.h>
 
-void localtime_r_quit(void)
-{
-	mt_mutex_delete(localtime_r_mutex);
-}
+int sdl3_init(void);
+void sdl3_quit(void);
 
-int localtime_r_init(void)
-{
-	localtime_r_mutex = mt_mutex_create();
-	if (!localtime_r_mutex)
-		return 0;
+#ifdef SDL3_DYNAMIC_LOAD
 
-	initialized = 1;
+// must be called AFTER sdl3_init()
+int sdl3_load_sym(const char *fn, void *addr);
 
-	return 1;
-}
+#define SCHISM_SDL3_SYM(x) \
+	if (!sdl3_load_sym("SDL_" #x, &sdl3_##x)) return -1
 
-struct tm *localtime_r(const time_t *timep, struct tm *result)
-{
-	static struct tm *our_tm;
+#else
 
-	// huh?
-	if (!initialized)
-		return NULL;
+#define SCHISM_SDL3_SYM(x) \
+	sdl3_##x = SDL_##x
 
-	mt_mutex_lock(localtime_r_mutex);
+#endif
 
-	our_tm = localtime(timep);
-	*result = *our_tm;
+#define SDL3_VERSION_ATLEAST(ver, mmajor, mminor, mpatch) \
+	SCHISM_SEMVER_ATLEAST(mmajor, mminor, mpatch, ver.major, ver.minor, ver.patch)
 
-	mt_mutex_unlock(localtime_r_mutex);
-
-	return result;
-}
+#endif /* SCHISM_SYS_SDL3_INIT_H_ */

@@ -24,7 +24,7 @@
 #include "headers.h"
 #include "loadso.h"
 #include "mem.h"
-#include "threads.h"
+#include "mt.h"
 
 #include "backend/timer.h"
 
@@ -63,6 +63,11 @@ void timer_usleep(uint64_t usec)
 #endif
 }
 
+void timer_msleep(uint32_t ms)
+{
+	backend->msleep(ms);
+}
+
 static mt_thread_t *timer_oneshot_thread = NULL;
 static int timer_oneshot_thread_cancelled = 0;
 
@@ -71,11 +76,8 @@ struct _timer_oneshot_data {
 	void (*callback)(void *param);
 	void *param;
 
-	// Start time in microseconds.
-	timer_ticks_t start;
-
-	// Time until the oneshot should be called in microseconds.
-	timer_ticks_t us;
+	// Ticks until the oneshot should be called, in microseconds.
+	timer_ticks_t trigger;
 
 	struct _timer_oneshot_data *next;
 } *oneshot_data_list = NULL;
@@ -95,8 +97,7 @@ static int _timer_oneshot_thread(void *userdata)
 		// init data pointers
 		struct _timer_oneshot_data *data = oneshot_data_list, *prev = NULL;
 		while (data) {
-			const timer_ticks_t end = data->start + data->us;
-			if (timer_ticks_passed(now, end)) {
+			if (timer_ticks_passed(now, data->trigger)) {
 				data->callback(data->param);
 
 				now = timer_ticks_us();
@@ -113,7 +114,7 @@ static int _timer_oneshot_thread(void *userdata)
 				data = data->next;
 				free(old);
 			} else {
-				wait = MIN(end - now, wait);
+				wait = MIN(data->trigger - now, wait);
 
 				prev = data;
 				data = data->next;
@@ -141,8 +142,7 @@ void timer_oneshot(uint32_t ms, void (*callback)(void *param), void *param)
 
 	data->callback = callback;
 	data->param = param;
-	data->start = timer_ticks_us();
-	data->us = ms * UINT64_C(1000);
+	data->trigger = timer_ticks_us() + (ms * UINT64_C(1000));
 
 	// locks the mutex and starts the thread if necessary
 	if (!timer_oneshot_thread) {
@@ -175,6 +175,9 @@ int timer_init(void)
 		// ordered by preference
 #ifdef SCHISM_WIN32
 		&schism_timer_backend_win32,
+#endif
+#ifdef SCHISM_SDL3
+		&schism_timer_backend_sdl3,
 #endif
 #ifdef SCHISM_SDL2
 		&schism_timer_backend_sdl2,

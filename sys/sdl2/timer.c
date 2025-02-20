@@ -22,7 +22,7 @@
  */
 
 #include "headers.h"
-#include "threads.h"
+#include "mt.h"
 #include "mem.h"
 #include "backend/timer.h"
 
@@ -78,6 +78,11 @@ static void sdl2_timer_usleep(uint64_t us)
 	sdl2_Delay(us / 1000);
 }
 
+static void sdl2_timer_msleep(uint32_t ms)
+{
+	sdl2_Delay(ms);
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // oneshot timer
 
@@ -86,7 +91,7 @@ struct _sdl2_timer_oneshot_curry {
 	void *param;
 };
 
-static uint32_t _sdl2_timer_oneshot_callback(uint32_t interval, void *param)
+static SDLCALL uint32_t _sdl2_timer_oneshot_callback(uint32_t interval, void *param)
 {
 	struct _sdl2_timer_oneshot_curry *curry = (struct _sdl2_timer_oneshot_curry *)param;
 
@@ -173,6 +178,7 @@ const schism_timer_backend_t schism_timer_backend_sdl2 = {
 	.ticks = sdl2_timer_ticks,
 	.ticks_us = sdl2_timer_ticks_us,
 	.usleep = sdl2_timer_usleep,
+	.msleep = sdl2_timer_msleep,
 
 	.oneshot = sdl2_timer_oneshot,
 };
