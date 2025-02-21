@@ -31,6 +31,7 @@
 #include "dialog.h"
 #include "widget.h"
 #include "keyboard.h"
+#include "accessibility.h"
 
 /* Eventual TODO: draw the pattern data in the Schism logo in a different color than the words */
 #include "auto/logoit.h"
@@ -55,6 +56,8 @@ static struct vgamem_overlay logo_image = {
 static int _fixup_ignore_globals(struct key_event *k)
 {
 	if (k->mouse && k->y > 20) return 0;
+	if (k->state == KEY_PRESS)
+		a11y_interrupt();
 	switch (k->sym) {
 	case SCHISM_KEYSYM_LEFT:
 	case SCHISM_KEYSYM_RIGHT:

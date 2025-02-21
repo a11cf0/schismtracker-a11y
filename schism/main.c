@@ -1009,7 +1009,6 @@ int schism_main(int argc, char** argv)
 		schism_exit(1);
 	}
 
-	a11y_init();
 	video_startup();
 	if (want_fullscreen >= 0)
 		video_fullscreen(want_fullscreen);
@@ -1033,8 +1032,8 @@ int schism_main(int argc, char** argv)
 	video_mousecursor(cfg_video_mousecursor);
 	/* silence the mouse cursor message */
 	status_text_flash(" ");
-	a11y_interrupt();
 
+	a11y_init();
 	load_pages();
 	main_song_changed_cb();
 
