@@ -350,22 +350,15 @@ static void a11y_set_char_mode(int state)
 	if (!(status.flags & ACCESSIBILITY_MODE)) return;
 	int symbol_level;
 	int engine = SRAL_GetCurrentEngine();
-	switch (engine) {
-	case ENGINE_NVDA:
+	int supports_spelling = SRAL_GetEngineFeatures(engine) & SUPPORTS_SPELLING;
+	if (supports_spelling)
+		SRAL_SetEngineParameter(engine, ENABLE_SPELLING, (void*)&state);
+	if (engine ==ENGINE_NVDA) {
 		int is_control_ex = 0;
 		symbol_level = state ? 1000 : 100; // Character or Some
 		SRAL_GetEngineParameter(engine, NVDA_IS_CONTROL_EX, (void*)&is_control_ex);
-		if (is_control_ex)
-			SRAL_SetEngineParameter(engine, ENABLE_SPELLING, (void*)&state);
-		else
+		if (!is_control_ex)
 			SRAL_SetEngineParameter(engine, SYMBOL_LEVEL, (void*)&symbol_level);
-		break;
-	case ENGINE_SPEECH_DISPATCHER:
-		symbol_level = state ? 10 : 2; // All or Some
-		SRAL_SetEngineParameter(engine, SYMBOL_LEVEL, (void*)&symbol_level);
-		break;
-	default:
-		break; // Unsupported
 	}
 }
 
