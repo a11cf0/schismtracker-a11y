@@ -738,15 +738,15 @@ const schism_audio_backend_t schism_audio_backend_dsound = {
 
 //////////////////////////////////////////////////////////////////////////////
 
+// no charset-specific stuff here, that cruft is handled in the callbacks
 struct dsound_audio_lookup_callback_data {
-	GUID guid;
-	char *result;
+	UINT id;      // input
+	GUID guid;    // output for description callback, input for device callback
+	char *result; // output
 };
 
-// TODO: Instead of taking a waveout *name* it should take an ID, and look it up
-// via DSPROPERTY_DIRECTSOUNDDEVICE_ENUMERATE and check the WaveDeviceID.
-#define WIN32_DSOUND_AUDIO_LOOKUP_WAVEOUT_NAME_IMPL(AorW, TYPE, CHARSET, STRNCPY) \
-	static BOOL CALLBACK _dsound_enumerate_lookup_callback_##AorW(LPGUID lpGuid, const TYPE *lpcstrDescription, SCHISM_UNUSED const TYPE *lpcstrModule, LPVOID lpContext) \
+#define WIN32_DSOUND_AUDIO_LOOKUP_WAVEOUT_NAME_IMPL(AorW, TYPE, CHARSET) \
+	static BOOL CALLBACK dsound_enumerate_lookup_device_callback_##AorW##_(LPGUID lpGuid, const TYPE *lpcstrDescription, SCHISM_UNUSED const TYPE *lpcstrModule, LPVOID lpContext) \
 	{ \
 		struct dsound_audio_lookup_callback_data *data = lpContext; \
 	\
@@ -758,29 +758,38 @@ struct dsound_audio_lookup_callback_data {
 		return TRUE; \
 	} \
 	\
-	static inline int SCHISM_ALWAYS_INLINE win32_dsound_audio_lookup_waveout_name_##AorW(const TYPE *waveoutname, char **result) \
+	static BOOL CALLBACK dsound_enumerate_lookup_description_callback_##AorW##_(PDSPROPERTY_DIRECTSOUNDDEVICE_DESCRIPTION_##AorW##_DATA pdata, LPVOID puserdata) \
 	{ \
+		struct dsound_audio_lookup_callback_data *pcbdata = puserdata; \
+	\
+		if (pdata && (pdata->WaveDeviceId == pcbdata->id)) { \
+			memcpy(&pcbdata->guid, &pdata->DeviceId, sizeof(GUID)); \
+			if (pdata->Description) pcbdata->result = charset_iconv_easy(pdata->Description, CHARSET, CHARSET_ANSI); \
+			return FALSE; \
+		} \
+	\
+		return TRUE; \
+	} \
+	\
+	static inline int SCHISM_ALWAYS_INLINE win32_dsound_audio_lookup_waveout_name_##AorW(uint32_t waveoutdevid, char **result) \
+	{ \
+		ULONG ulxyzzy; \
+	\
 		if (!DSOUND_DirectSoundEnumerate##AorW) \
 			return 0; \
 	\
-		/* WAVEDEVICEMAPPING has non-const pointers */ \
-		TYPE devname[32]; \
-		ULONG ulxyzzy; \
-		DSPROPERTY_DIRECTSOUNDDEVICE_WAVEDEVICEMAPPING_##AorW##_DATA data = {0}; \
+		struct dsound_audio_lookup_callback_data cbdata = { .id = waveoutdevid }; \
 	\
-		STRNCPY(devname, waveoutname, 31); \
-		devname[31] = 0; \
+		DSPROPERTY_DIRECTSOUNDDEVICE_ENUMERATE_##AorW##_DATA data = { \
+			.Callback = dsound_enumerate_lookup_description_callback_##AorW##_, \
+			.Context = &cbdata, \
+		}; \
 	\
-		data.DeviceName = devname; \
-		data.DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_RENDER; \
+		if (SUCCEEDED(IKsPropertySet_Get(dsound_propset, &DSPROPSETID_DirectSoundDevice, DSPROPERTY_DIRECTSOUNDDEVICE_ENUMERATE_##AorW, &data, sizeof(data), &data, sizeof(data), &ulxyzzy))) { \
+			/* we don't need to enumerate twice if we already received the result */ \
+			if (cbdata.result) { *result = cbdata.result; return 1; } \
 	\
-		if (SUCCEEDED(IKsPropertySet_Get(dsound_propset, &DSPROPSETID_DirectSoundDevice, DSPROPERTY_DIRECTSOUNDDEVICE_WAVEDEVICEMAPPING_##AorW, &data, sizeof(data), &data, sizeof(data), &ulxyzzy))) { \
-			struct dsound_audio_lookup_callback_data cbdata; \
-	\
-			cbdata.guid = data.DeviceId; \
-			cbdata.result = NULL; \
-	\
-			DSOUND_DirectSoundEnumerate##AorW(_dsound_enumerate_lookup_callback_##AorW, &cbdata); \
+			DSOUND_DirectSoundEnumerate##AorW(dsound_enumerate_lookup_device_callback_##AorW##_, &cbdata); \
 			if (cbdata.result) { *result = cbdata.result; return 1; } \
 		} \
 	\
@@ -788,23 +797,23 @@ struct dsound_audio_lookup_callback_data {
 	}
 
 #ifdef SCHISM_WIN32_COMPILE_ANSI
-WIN32_DSOUND_AUDIO_LOOKUP_WAVEOUT_NAME_IMPL(A, char, CHARSET_ANSI, strncpy)
+WIN32_DSOUND_AUDIO_LOOKUP_WAVEOUT_NAME_IMPL(A, CHAR, CHARSET_ANSI)
 #endif
-WIN32_DSOUND_AUDIO_LOOKUP_WAVEOUT_NAME_IMPL(W, WCHAR, CHARSET_WCHAR_T, wcsncpy)
+WIN32_DSOUND_AUDIO_LOOKUP_WAVEOUT_NAME_IMPL(W, WCHAR, CHARSET_WCHAR_T)
 
 #undef WIN32_DSOUND_AUDIO_LOOKUP_WAVEOUT_NAME_IMPL
 
-int win32_dsound_audio_lookup_waveout_name(const void *waveoutnamev, char **result)
+int win32_dsound_audio_lookup_waveout_name(const uint32_t *waveoutdevid, char **result)
 {
-	if (!waveoutnamev || !dsound_propset)
+	if (!waveoutdevid || !dsound_propset)
 		return 0;
 
 #ifdef SCHISM_WIN32_COMPILE_ANSI
 	if (GetVersion() & 0x80000000U) { // Win9x
-		return win32_dsound_audio_lookup_waveout_name_A(waveoutnamev, result);
+		return win32_dsound_audio_lookup_waveout_name_A(*waveoutdevid, result);
 	} else
 #endif
 	{ // WinNT
-		return win32_dsound_audio_lookup_waveout_name_W(waveoutnamev, result);
+		return win32_dsound_audio_lookup_waveout_name_W(*waveoutdevid, result);
 	}
 }
