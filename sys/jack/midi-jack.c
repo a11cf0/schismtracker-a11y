@@ -68,6 +68,7 @@ static void (*JACK_jack_midi_clear_buffer)(void *);
 static jack_time_t (*JACK_jack_frames_to_time)(const jack_client_t *client, jack_nframes_t);
 static jack_nframes_t (*JACK_jack_time_to_frames)(const jack_client_t *, jack_time_t);
 static jack_time_t (*JACK_jack_get_time)(void);
+static void (*JACK_jack_free)(void *ptr);
 
 static int load_jack_syms(void);
 
@@ -156,6 +157,7 @@ static int load_jack_syms(void) {
 	SCHISM_JACK_SYM(jack_get_time);
 	SCHISM_JACK_SYM(jack_time_to_frames);
 	SCHISM_JACK_SYM(jack_frames_to_time);
+	SCHISM_JACK_SYM(jack_free);
 
 	return 0;
 }
@@ -265,11 +267,41 @@ static int _jack_process(jack_nframes_t nframes, void *user_data) {
 
 		jack_midi_data_t* data = JACK_jack_midi_event_reserve(midi_out_buffer, 0, size);
 
-		if (data) return (JACK_jack_ringbuffer_read(ringbuffer_out, (char*)data, size) != size);
-		else JACK_jack_ringbuffer_read_advance(ringbuffer_out, size);
+		if (data)
+			JACK_jack_ringbuffer_read(ringbuffer_out, (char*)data, size);
+		else
+			JACK_jack_ringbuffer_read_advance(ringbuffer_out, size);
 	}
 
 	return 0;
+}
+
+static void _jack_disconnect(void)
+{
+	if (midi_in_port) {
+		JACK_jack_port_unregister(client, midi_in_port);
+		midi_out_port = NULL;
+	}
+
+	if (midi_out_port) {
+		JACK_jack_port_unregister(client, midi_out_port);
+		midi_out_port = NULL;
+	}
+
+	if (client) {
+		JACK_jack_client_close(client);
+		client = NULL;
+	}
+
+	if (ringbuffer_in) {
+		JACK_jack_ringbuffer_free(ringbuffer_in);
+		ringbuffer_in = NULL;
+	}
+
+	if (ringbuffer_out) {
+		JACK_jack_ringbuffer_free(ringbuffer_out);
+		ringbuffer_out = NULL;
+	}
 }
 
 static int _jack_thread(struct midi_provider *p)
@@ -295,6 +327,9 @@ static int _jack_thread(struct midi_provider *p)
 
 		timer_msleep(10);
 	}
+
+	// if we're cancelled, disconnect
+	_jack_disconnect();
 
 	return 0;
 }
@@ -367,20 +402,7 @@ static int _jack_attempt_connect(struct midi_provider* jack_provider_) {
 	return 1;
 
 fail:
-	if (midi_in_port) {
-		JACK_jack_port_unregister(client, midi_in_port);
-		midi_out_port = NULL;
-	}
-
-	if (midi_out_port) {
-		JACK_jack_port_unregister(client, midi_out_port);
-		midi_out_port = NULL;
-	}
-
-	if (client) {
-		JACK_jack_client_close(client);
-		client = NULL;
-	}
+	_jack_disconnect();
 
 	return 0;
 }
@@ -402,11 +424,11 @@ static void _jack_poll(struct midi_provider* jack_provider_)
 
 	ports = JACK_jack_get_ports(client, NULL, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput);
 	_jack_enumerate_ports(ports, jack_provider_, MIDI_INPUT);
-	free(ports);
+	JACK_jack_free(ports);
 
 	ports = JACK_jack_get_ports(client, NULL, JACK_DEFAULT_MIDI_TYPE, JackPortIsInput);
 	_jack_enumerate_ports(ports, jack_provider_, MIDI_OUTPUT);
-	free(ports);
+	JACK_jack_free(ports);
 
 	while (midi_port_foreach(jack_provider_, &ptr)) {
 		m = (struct jack_midi*)ptr->userdata;
@@ -449,11 +471,7 @@ int jack_midi_setup(void)
 	return 1;
 
 fail:
-	if (ringbuffer_in)
-		JACK_jack_ringbuffer_free(ringbuffer_in);
-
-	if (ringbuffer_out)
-		JACK_jack_ringbuffer_free(ringbuffer_out);
+	_jack_disconnect();
 
 	return 0;
 }

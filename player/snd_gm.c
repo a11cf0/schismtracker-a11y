@@ -289,8 +289,8 @@ static int32_t GM_AllocateMelodyChannel(song_t *csf, int32_t c, int32_t patch, i
 	 * Channel with biggest score is selected.
 	 *
 	 */
-	int32_t bad_channels[16] = {0};  // channels having the same key playing
-	int32_t used_channels[16] = {0}; // channels having something playing
+	int32_t bad_channels[MAX_MIDI_CHANNELS] = {0};  // channels having the same key playing
+	int32_t used_channels[MAX_MIDI_CHANNELS] = {0}; // channels having something playing
 
 	for (uint32_t a = 0; a < MAX_VOICES; ++a) {
 		if (s3m_active(csf->midi_s3m_chans[a]) &&
@@ -303,10 +303,10 @@ static int32_t GM_AllocateMelodyChannel(song_t *csf, int32_t c, int32_t patch, i
 		}
 	}
 
-	int32_t best_mc = c % 16,
+	int32_t best_mc = c % MAX_MIDI_CHANNELS,
 	        best_score = -999;
 
-	for (int32_t mc = 0; mc < 16; ++mc) {
+	for (int32_t mc = 0; mc < MAX_MIDI_CHANNELS; ++mc) {
 		if (mc == 9)
 			continue; // percussion channel is never chosen for melody.
 
@@ -325,7 +325,7 @@ static int32_t GM_AllocateMelodyChannel(song_t *csf, int32_t c, int32_t patch, i
 		else if (PreferredChannelHandlingMode == AlwaysHonor) {
 			// disallow channels that are not allowed
 			if (pref_chn_mask >= 0x10000) {
-				if (mc != c % 16)
+				if (mc != c % MAX_MIDI_CHANNELS)
 					continue;
 			}
 			else if (!(pref_chn_mask & (1 << mc)))
@@ -416,8 +416,7 @@ void GM_KeyOn(song_t *csf, int32_t c, unsigned char key, unsigned char vol)
 		msi_set_volume(csf, &csf->midi_chans[mc], mc, GM_volume(vol));
 		csf->midi_s3m_chans[c].note = key;
 		MPU_NoteOn(csf, mc, csf->midi_s3m_chans[c].note = percu, 127);
-	}
-	else {
+	} else {
 		// Allocate a MIDI channel for this key.
 		// Note: If you need to transpone the key, do it before allocating the channel.
 
@@ -503,7 +502,7 @@ void GM_Reset(song_t *csf, int quitting)
 		n_semitones_times_128 = 128;
 	}
 
-	for (a = 0; a < 16; a++) {
+	for (a = 0; a < MAX_MIDI_CHANNELS; a++) {
 		// XXX
 		// XXX Porting note:
 		// XXX This might go wrong because the midi struct is already reset

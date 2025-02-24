@@ -105,7 +105,14 @@ static void _csf_reset(song_t *csf)
 	OPL_Close(csf);
 	GM_Reset(csf, 1);
 
-	csf->midi_out_note = NULL;
+	memset(csf->midi_note_tracker, 0, sizeof(csf->midi_note_tracker));
+	memset(csf->midi_vol_tracker, 0, sizeof(csf->midi_vol_tracker));
+	memset(csf->midi_ins_tracker, 0, sizeof(csf->midi_ins_tracker));
+	memset(csf->midi_was_program, 0, sizeof(csf->midi_was_program));
+	memset(csf->midi_was_banklo, 0, sizeof(csf->midi_was_banklo));
+	memset(csf->midi_was_bankhi, 0, sizeof(csf->midi_was_bankhi));
+	csf->midi_last_row_number = -1;
+
 	csf->midi_out_raw = NULL;
 }
 
@@ -234,10 +241,9 @@ void csf_forget_history(song_t *csf)
 	localtime_r(&thetime, &csf->editstart.time);
 }
 
-// Initializes MIDI callback functions
-void csf_init_midi(song_t *csf, song_midi_out_note_spec_t midi_out_note, song_midi_out_raw_spec_t midi_out_raw)
+// Initializes MIDI callback function...
+void csf_init_midi(song_t *csf, song_midi_out_raw_spec_t midi_out_raw)
 {
-	csf->midi_out_note = midi_out_note;
 	csf->midi_out_raw  = midi_out_raw;
 }
 
@@ -836,9 +842,13 @@ uint32_t csf_read_sample(song_sample_t *sample, uint32_t flags, slurp_t *fp)
 	case SF(7,M,BE,PCMS):
 	case SF(7,M,LE,PCMS):
 		sample->flags &= ~(CHN_16BIT | CHN_STEREO);
+
 		len = sample->length = MIN(sample->length, memsize);
+
+		slurp_read(fp, sample->data, len);
 		for (uint32_t j = 0; j < len; j++)
-			sample->data[j] = CLAMP(slurp_getc(fp) * 2, -128, 127);
+			sample->data[j] = CLAMP(sample->data[j] * 2, -128, 127);
+
 		break;
 
 	// 8-bit mono PCM
@@ -879,8 +889,6 @@ uint32_t csf_read_sample(song_sample_t *sample, uint32_t flags, slurp_t *fp)
 	case SF(8,SS,BE,PCMS):
 	case SF(8,SS,BE,PCMU):
 	case SF(8,SS,BE,PCMD): {
-		
-
 		len = sample->length * 2;
 		if (len > memsize) break;
 
@@ -932,7 +940,7 @@ uint32_t csf_read_sample(song_sample_t *sample, uint32_t flags, slurp_t *fp)
 	case SF(16,M,BE,PCMD):
 	case SF(16,M,BE,PCMS):
 	case SF(16,M,BE,PCMU): {
-		uint16_t iadd = ((flags & SF_ENC_MASK) == SF_PCMU) ? INT16_MIN : 0;
+		uint16_t iadd = ((flags & SF_ENC_MASK) == SF_PCMU) ? 0x8000 : 0;
 
 		len = sample->length;
 		if (len * 2 > memsize)
@@ -967,7 +975,7 @@ uint32_t csf_read_sample(song_sample_t *sample, uint32_t flags, slurp_t *fp)
 			break;
 
 		for (int c = 0; c < 2; c++) {
-			uint16_t iadd = ((flags & SF_ENC_MASK) == SF_PCMU) ? INT16_MIN : 0;
+			uint16_t iadd = ((flags & SF_ENC_MASK) == SF_PCMU) ? 0x8000 : 0;
 
 			uint16_t *data = (uint16_t *)sample->data + c;
 			for (uint32_t j = 0; j < len; j += 2) {
