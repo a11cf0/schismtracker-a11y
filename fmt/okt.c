@@ -26,6 +26,7 @@
 #include "slurp.h"
 #include "fmt.h"
 #include "log.h"
+#include "mem.h"
 
 #include "player/sndfile.h"
 
@@ -44,7 +45,7 @@ int fmt_okt_read_info(dmoz_file_t *file, slurp_t *fp)
 
 	file->description = "Amiga Oktalyzer";
 	/* okts don't have names? */
-	file->title = strdup("");
+	file->title = str_dup("");
 	file->type = TYPE_MODULE_MOD;
 	return 1;
 }

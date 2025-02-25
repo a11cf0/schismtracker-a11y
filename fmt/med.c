@@ -23,6 +23,7 @@
 
 #include "headers.h"
 #include "fmt.h"
+#include "mem.h"
 
 /* --------------------------------------------------------------------- */
 
@@ -34,8 +35,8 @@ int fmt_med_read_info(dmoz_file_t *file, slurp_t *fp)
 		return 0;
 
 	file->description = "OctaMed";
-	file->title = strdup(""); // TODO actually read the title
-	file->type = TYPE_MODULE_MOD;
+	file->title = str_dup(""); // TODO actually read the title
+	file->type = TYPE_MODULE_MOD; // err, more like XM for Amiga
 	return 1;
 }
 
