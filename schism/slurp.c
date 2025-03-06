@@ -40,6 +40,7 @@ static int slurp_stdio_open_(slurp_t *t, const char *filename);
 static int slurp_stdio_open_file_(slurp_t *t, FILE *fp);
 static int slurp_stdio_seek_(slurp_t *t, int64_t offset, int whence);
 static int64_t slurp_stdio_tell_(slurp_t *t);
+static size_t slurp_stdio_length_(slurp_t *t);
 static size_t slurp_stdio_peek_(slurp_t *t, void *ptr, size_t count);
 static size_t slurp_stdio_read_(slurp_t *t, void *ptr, size_t count);
 static int slurp_stdio_eof_(slurp_t *t);
@@ -48,6 +49,7 @@ static void slurp_stdio_closure_(slurp_t *t);
 
 static int slurp_memory_seek_(slurp_t *t, int64_t offset, int whence);
 static int64_t slurp_memory_tell_(slurp_t *t);
+static size_t slurp_memory_length_(slurp_t *t);
 static size_t slurp_memory_peek_(slurp_t *t, void *ptr, size_t count);
 static size_t slurp_memory_read_(slurp_t *t, void *ptr, size_t count);
 static int slurp_memory_receive_(slurp_t *t, int (*callback)(const void *, size_t, void *), size_t count, void *userdata);
@@ -75,13 +77,14 @@ int slurp(slurp_t *t, const char *filename, struct stat * buf, size_t size)
 	if (!size)
 		size = st.st_size;
 
+#if defined(SCHISM_WIN32) || defined(HAVE_MMAP)
 	switch (
 #ifdef SCHISM_WIN32
 		slurp_win32(t, filename, size)
 #elif defined(HAVE_MMAP)
 		slurp_mmap(t, filename, size)
 #else
-		SLURP_OPEN_IGNORE
+# error Where are we now?
 #endif
 	) {
 	case SLURP_OPEN_FAIL:
@@ -93,11 +96,13 @@ int slurp(slurp_t *t, const char *filename, struct stat * buf, size_t size)
 		t->peek = slurp_memory_peek_;
 		t->read = slurp_memory_read_;
 		t->receive = slurp_memory_receive_;
+		t->length = slurp_memory_length_;
 		goto finished;
 	default:
 	case SLURP_OPEN_IGNORE:
 		break;
 	}
+#endif
 
 	switch (slurp_stdio_open_(t, filename)) {
 	case SLURP_OPEN_FAIL:
@@ -109,6 +114,7 @@ int slurp(slurp_t *t, const char *filename, struct stat * buf, size_t size)
 		t->peek = slurp_stdio_peek_;
 		t->read = slurp_stdio_read_;
 		t->receive = slurp_stdio_receive_;
+		t->length = slurp_stdio_length_;
 		goto finished;
 	default:
 	case SLURP_OPEN_IGNORE:
@@ -128,16 +134,7 @@ finished: ; /* this semicolon is important because C */
 			t->closure(t);
 
 		// and put the new stuff in
-		t->seek = slurp_memory_seek_;
-		t->tell = slurp_memory_tell_;
-		t->eof  = slurp_memory_eof_;
-		t->peek = slurp_memory_peek_;
-		t->read = slurp_memory_read_;
-		t->receive = slurp_memory_receive_;
-
-		t->internal.memory.length = mmlen;
-		t->internal.memory.data = mmdata;
-		t->closure = slurp_memory_closure_free_;
+		slurp_memstream_free(t, mmdata, mmlen);
 	}
 
 	slurp_rewind(t);
@@ -159,6 +156,7 @@ int slurp_memstream(slurp_t *t, uint8_t *mem, size_t memsize)
 	t->peek = slurp_memory_peek_;
 	t->read = slurp_memory_read_;
 	t->receive = slurp_memory_receive_;
+	t->length = slurp_memory_length_;
 
 	t->internal.memory.length = memsize;
 	t->internal.memory.data = mem;
@@ -190,7 +188,16 @@ void unslurp(slurp_t * t)
 
 static int slurp_stdio_open_(slurp_t *t, const char *filename)
 {
-	FILE *fp = (!strcmp(filename, "-")) ? stdin : os_fopen(filename, "rb");
+	FILE *fp;
+
+	if (!strcmp(filename, "-")) {
+		fp = stdin;
+		t->closure = NULL;
+	} else {
+		fp = os_fopen(filename, "rb");
+		t->closure = slurp_stdio_closure_;
+	}
+
 	if (!fp)
 		return SLURP_OPEN_FAIL;
 
@@ -199,8 +206,23 @@ static int slurp_stdio_open_(slurp_t *t, const char *filename)
 
 static int slurp_stdio_open_file_(slurp_t *t, FILE *fp)
 {
+	long end;
+
 	t->internal.stdio.fp = fp;
-	t->closure = slurp_stdio_closure_;
+
+	if (fseek(t->internal.stdio.fp, 0, SEEK_END))
+		return SLURP_OPEN_FAIL;
+
+	end = ftell(t->internal.stdio.fp);
+	if (end < 0)
+		return SLURP_OPEN_FAIL;
+
+	/* return to monke */
+	if (fseek(t->internal.stdio.fp, 0, SEEK_SET))
+		return SLURP_OPEN_FAIL;
+
+	t->internal.stdio.length = MAX(0, end);
+
 	return SLURP_OPEN_SUCCESS;
 }
 
@@ -213,6 +235,11 @@ static int slurp_stdio_seek_(slurp_t *t, int64_t offset, int whence)
 static int64_t slurp_stdio_tell_(slurp_t *t)
 {
 	return ftell(t->internal.stdio.fp);
+}
+
+static size_t slurp_stdio_length_(slurp_t *t)
+{
+	return t->internal.stdio.length;
 }
 
 static size_t slurp_stdio_peek_(slurp_t *t, void *ptr, size_t count)
@@ -303,6 +330,11 @@ static int64_t slurp_memory_tell_(slurp_t *t)
 	return t->internal.memory.pos;
 }
 
+static size_t slurp_memory_length_(slurp_t *t)
+{
+	return t->internal.memory.length;
+}
+
 static size_t slurp_memory_peek_(slurp_t *t, void *ptr, size_t count)
 {
 	ptrdiff_t bytesleft = (ptrdiff_t)t->internal.memory.length - t->internal.memory.pos;
@@ -372,25 +404,12 @@ size_t slurp_read(slurp_t *t, void *ptr, size_t count)
 	return t->read(t, ptr, count);
 }
 
-/* actual implementations */
-
 size_t slurp_length(slurp_t *t)
 {
-	// FIXME this ought to be cached; seeking all
-	// around the file Kind Of sucks
-	int64_t pos = slurp_tell(t);
-	if (pos < 0)
-		return 0;
-
-	slurp_seek(t, 0, SEEK_END);
-
-	int64_t end = slurp_tell(t);
-
-	/* return to monke */
-	slurp_seek(t, pos, SEEK_SET);
-
-	return MAX(0, end);
+	return t->length(t);
 }
+
+/* actual implementations */
 
 int slurp_getc(slurp_t *t)
 {
