@@ -30,7 +30,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <math.h>
 
 #define SAMPLE_DATA_COLOR 13 /* Sample data */
 #define SAMPLE_LOOP_COLOR 3 /* Sample loop marks */

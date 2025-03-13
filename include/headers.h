@@ -21,21 +21,42 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/* this file includes general C language headers that are useful everywhere,
+ * along with some stupid stuff for broken toolchains that don't fully comply
+ * to C99, like VLA support, va_copy stuff, etc
+ *
+ * In other projects this header is usually called "stdinc.h" ;) */
+
 #ifndef SCHISM_HEADERS_H_
 #define SCHISM_HEADERS_H_
-/* This is probably overkill, but it's consistent this way. */
 
 #ifndef _GNU_SOURCE
-#define _GNU_SOURCE // not necessarily true but whatever
+#define _GNU_SOURCE /* need this for some stupid gnu crap */
 #endif
 
 #ifdef HAVE_CONFIG_H
 # include <build-config.h>
 #endif
 
+/* ------------------------------------------------------------------------ */
+/* Actual standard C stuff */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <string.h>
+
+#include <errno.h>
+
+#include <time.h>
+
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
+#endif
+
+/* TODO we should handle this stuff ourselves, rather than giving it off
+ * to autoconf, since we use the PRIx* and INT*_C macros. but that's for
+ * another day. */
 #ifdef HAVE_STDINT_H
 # include <stdint.h>
 #endif
@@ -43,39 +64,55 @@
 # include <inttypes.h>
 #endif
 
+#include <math.h>
+#if defined(HAVE_TGMATH_H) && !defined(SCHISM_MACOS) /* Macintosh toolchain has tgmath.h, but it's broken as shit */
+# include <tgmath.h>
+#endif
+
+/* Math constants, not standard but in most toolchains, notably
+ * OpenWatcom doesn't have them. */
+#ifndef M_PI
+# define M_PI 3.1415926535897932384626433832795028841971
+#endif
+
+#ifdef HAVE_ASSERT_H
+# include <assert.h>
+#else
+# ifndef NDEBUG
+/* untested. does this work? */
+#  define assert(x) do { if (!(x)) { fprintf(stderr, "%s: assertion failed", #x); exit(1); } } while (0)
+# else
+#  define assert(x)
+# endif
+#endif
+
 #include <stdarg.h>
 #ifndef va_copy
-# ifdef __va_copy
+# ifdef __va_copy /* GNU */
 #  define va_copy(dst, sec) (__va_copy(dst, src))
 # else
 #  define va_copy(dst, src) (memcpy(&dst, &src, sizeof(va_list)))
 # endif
 #endif
 
+/* ------------------------------------------------------------------------ */
+/* POSIX/UNIX/BSD crap */
+
+/* This defines MAXPATHLEN (used later in this file for the definition of
+ * SCHISM_PATH_MAX) */
 #ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
 
-#include <string.h>
-
+/* These files provide struct stat, which we currently require to be
+ * provided by the implementation. Ideally we shouldn't need this and we
+ * would use our own "schism-stat" instead but this is okay for now. */
 #if HAVE_UNISTD_H
 # include <sys/types.h>
 # include <unistd.h>
 #endif
 
-#ifdef HAVE_LIMITS_H
-#include <limits.h>
-#endif
-
-#if HAVE_SYS_TIME_H
-# include <sys/time.h>
-#endif
-#include <time.h>
-
-#define INT_SHAPED_PTR(v)               ((intptr_t)(void*)(v))
-#define PTR_SHAPED_INT(i)               ((void*)(i))
-
-/* -------------------------------------------------------------- */
+/* ------------------------------------------------------------------------ */
 /* moved from util.h */
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
@@ -90,12 +127,18 @@
 #ifndef CLAMP
 # define CLAMP(N,L,H) (((N)>(H))?(H):(((N)<(L))?(L):(N)))
 #endif
+#ifndef ABS
+# define ABS(x) ((x) < 0 ? -(x) : x)
+#endif
+
+#define INT_SHAPED_PTR(v)               ((intptr_t)(void*)(v))
+#define PTR_SHAPED_INT(i)               ((void*)(i))
 
 /* Compares two version numbers following Semantic Versioning.
  * For example:
- *   SCHISM_SEMVER_ATLEAST(1, 2, 3, 1, 2, 2) -> TRUE
+ *   SCHISM_SEMVER_ATLEAST(1, 2, 3, 1, 2, 4) -> TRUE
  *   SCHISM_SEMVER_ATLEAST(1, 2, 3, 2, 0, 0) -> TRUE
- *   SCHISM_SEMVER_ATLEAST(1, 1, 0, 1, 2, 1) -> FALSE */
+ *   SCHISM_SEMVER_ATLEAST(1, 2, 1, 1, 1, 0) -> FALSE */
 #define SCHISM_SEMVER_ATLEAST(mmajor, mminor, mpatch, major, minor, patch) \
 	(((major) >= (mmajor)) \
 	 && ((major) > (mmajor) || (minor) >= (mminor)) \
@@ -166,7 +209,7 @@
 # define SCHISM_HAS_C23_ATTRIBUTE(x) (0)
 #endif
 
-/* -------------------------------------------------------------- */
+/* ------------------------------------------------------------------------ */
 
 // Ok, now after all that mess, we can define these attributes:
 
@@ -186,7 +229,9 @@
 #if SCHISM_GNUC_HAS_ATTRIBUTE(__malloc__, 3, 0, 0)
 # define SCHISM_MALLOC __attribute__((__malloc__))
 #elif SCHISM_MSVC_ATLEAST(14, 0, 0)
-# define SCHISM_MALLOC __declspec(allocator)
+# define SCHISM_MALLOC __declspec(allocator) __declspec(restrict)
+#elif SCHISM_MSVC_ATLEAST(8, 0, 0)
+# define SCHISM_MALLOC __declspec(restrict)
 #else
 # define SCHISM_MALLOC
 #endif
@@ -210,6 +255,8 @@
 # define SCHISM_CONST __attribute__((__const__))
 #elif SCHISM_HAS_C23_ATTRIBUTE(unsequenced)
 # define SCHISM_CONST [[unsequenced]]
+#elif SCHISM_MSVC_ATLEAST(8, 0, 0)
+# define SCHISM_CONST __declspec(noalias)
 #else
 # define SCHISM_CONST
 #endif
@@ -221,18 +268,21 @@
 # define SCHISM_NORETURN _Noreturn
 #elif SCHISM_GNUC_HAS_ATTRIBUTE(__noreturn__, 2, 5, 0)
 # define SCHISM_NORETURN __attribute__((__noreturn__))
+#elif SCHISM_MSVC_ATLEAST(7, 1, 0)
+# define SCHISM_NORETURN __declspec(noreturn)
 #else
 # define SCHISM_NORETURN
 #endif
 
-/* Used for declaring format.
- * This ought to be separated into different macros to
- * ease adding different compiler support... */
+/* Used for declaring functions that take in a printf-style
+ * format string. If there are vararg params, the first index
+ * gets specified in the last parameter of this macro, else
+ * it should be 0. */
 #if SCHISM_GNUC_HAS_ATTRIBUTE(__format__, 2, 3, 0)
-# define SCHISM_FORMAT(function, format_index, first_index) \
-	__attribute__((__format__(function, format_index, first_index)))
+# define SCHISM_FORMAT_PRINTF(format_index, first_index) \
+	__attribute__((__format__(printf, format_index, first_index)))
 #else
-# define SCHISM_FORMAT(function, format_index, first_index)
+# define SCHISM_FORMAT_PRINTF(format_index, first_index)
 #endif
 
 /* Used for declaring malloc functions that take in an
@@ -263,7 +313,7 @@
 # define SCHISM_DEPRECATED [[deprecated]]
 #elif SCHISM_GNUC_HAS_ATTRIBUTE(__deprecated__, 3, 1, 0)
 # define SCHISM_DEPRECATED __attribute__((__deprecated__))
-#elif SCHISM_MSVC_ATLEAST(13, 10, 0)
+#elif SCHISM_MSVC_ATLEAST(6, 0, 0)
 # define SCHISM_DEPRECATED __declspec(deprecated)
 #else
 # define SCHISM_DEPRECATED
@@ -312,7 +362,7 @@
 
 /* Used to mark a printf format parameter. Currently only MSVC really
  * has this, and GCC has the much more useful "format" attribute */
-#if SCHISM_MSVC_ATLEAST(14, 0, 0)
+#if SCHISM_MSVC_ATLEAST(8, 0, 0)
 # define SCHISM_PRINTF_FORMAT_PARAM _Printf_format_string_
 #else
 # define SCHISM_PRINTF_FORMAT_PARAM
@@ -332,18 +382,18 @@
 /* ------------------------------------------------------------------------ */
 
 #ifndef HAVE_ASPRINTF
-int asprintf(char **strp, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, ...) SCHISM_FORMAT(printf, 2, 3);
+int asprintf(char **strp, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, ...) SCHISM_FORMAT_PRINTF(2, 3);
 #endif
 #ifndef HAVE_VASPRINTF
-int vasprintf(char **strp, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, va_list ap) SCHISM_FORMAT(printf, 2, 0);
+int vasprintf(char **strp, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, va_list ap) SCHISM_FORMAT_PRINTF(2, 0);
 #endif
 #ifndef HAVE_SNPRINTF
 #undef snprintf // stupid windows
-int snprintf(char *buffer, size_t count, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, ...) SCHISM_FORMAT(printf, 3, 4);
+int snprintf(char *buffer, size_t count, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, ...) SCHISM_FORMAT_PRINTF(3, 4);
 #endif
 #ifndef HAVE_VSNPRINTF
 #undef vsnprintf // stupid windows
-int vsnprintf(char *buffer, size_t count, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, va_list ap) SCHISM_FORMAT(printf, 2, 0);
+int vsnprintf(char *buffer, size_t count, SCHISM_PRINTF_FORMAT_PARAM const char *fmt, va_list ap) SCHISM_FORMAT_PRINTF(2, 0);
 #endif
 #ifndef HAVE_STRPTIME
 char *strptime(const char *buf, const char *fmt, struct tm *tm);
@@ -440,6 +490,8 @@ extern int ya_optind, ya_opterr, ya_optopt;
 // i.e. it can be like, INT_MAX or something huge like that
 
 /* ------------------------------------------------------------------------ */
+/* GNU string comparison functions, and charset_stdlib.c replacements for
+ * them */
 
 #ifndef HAVE_STRCASECMP
 # ifdef HAVE_STRICMP
@@ -466,14 +518,17 @@ extern int ya_optind, ya_opterr, ya_optopt;
 # define strcasestr(haystack, needle) charset_strcasestr(haystack, CHARSET_CHAR, needle, CHARSET_CHAR)
 #endif
 
-// why oh why
+/* ------------------------------------------------------------------------ */
+/* VLA abstraction; see the definitions below for details */
+
+/* Giant ifdef tower that's literally only for alloca() */
 #ifdef alloca
 # define SCHISM_USE_ALLOCA
 #else
 # ifdef HAVE_ALLOCA_H
 #  include <alloca.h>
 #  define SCHISM_USE_ALLOCA
-# elif defined(__NetBSD__) // untested
+# elif defined(__NetBSD__) || defined(__DMC__) // untested
 #  include <stdlib.h>
 #  define SCHISM_USE_ALLOCA
 # elif SCHISM_GNUC_HAS_BUILTIN(__builtin_alloca, 2, 95, 3)
@@ -483,14 +538,8 @@ extern int ya_optind, ya_opterr, ya_optopt;
 #  include <malloc.h>
 #  define alloca _alloca
 #  define SCHISM_USE_ALLOCA
-# elif defined(__WATCOMC__) // untested
+# elif defined(__WATCOMC__) || defined(__BORLANDC__) // untested
 #  include <malloc.h>
-#  define SCHISM_USE_ALLOCA
-# elif defined(__BORLANDC__) // untested
-#  include <malloc.h>
-#  define SCHISM_USE_ALLOCA
-# elif defined(__DMC__) // untested
-#  include <stdlib.h>
 #  define SCHISM_USE_ALLOCA
 # elif defined(_AIX) && !defined(__GNUC__) // untested
 #  pragma alloca
@@ -499,7 +548,7 @@ extern int ya_optind, ya_opterr, ya_optopt;
 void *alloca(unsigned int size);
 #  define SCHISM_USE_ALLOCA
 # elif defined(HAVE_ALLOCA)
-// we ought to not be assuming this
+// we ought to not be assuming this; eh
 void *alloca(size_t size);
 #  define SCHISM_USE_ALLOCA
 # endif
@@ -541,5 +590,34 @@ void *alloca(size_t size);
 
 // hm :)
 #define SCHISM_VLA_LENGTH(name) (SCHISM_VLA_SIZEOF(name) / sizeof(*name))
+
+/* ------------------------------------------------------------------------ */
+
+/* Used in the brackets of a flexible array member. Meant to be used as so:
+ *
+ * struct foo {
+ *   ...
+ *   int b[SCHISM_FAM_SIZE];
+ * } foo;
+ * int *b;
+ *
+ * // proper ways of accessing `b`:
+ * b = &foo.b;
+ * b = (int *)((unsigned char *)foo + offsetof(struct foo, b));
+ *
+ * // undefined behavior:
+ * b = (int *)((unsigned char *)foo + sizeof(foo));
+ *
+ * Flexible array members should be used as defined in the C99 spec (as in,
+ * only ever at the end of a struct).
+ */
+#ifdef HAVE_C99_FAMS
+# define SCHISM_FAM_SIZE
+#elif SCHISM_GNUC_ATLEAST(2, 7, 0)
+# define SCHISM_FAM_SIZE 0
+#else
+/* Hmph. */
+# define SCHISM_FAM_SIZE 1
+#endif
 
 #endif /* SCHISM_HEADERS_H_ */

@@ -32,8 +32,6 @@
 #ifdef USE_ALSA
 #include <sys/poll.h>
 
-#include <errno.h>
-
 #include <alsa/asoundlib.h>
 
 #include <sys/stat.h>
@@ -221,7 +219,7 @@ static void _alsa_drain(struct midi_port *p SCHISM_UNUSED)
 	ALSA_snd_seq_drain_output(seq);
 }
 
-static void _alsa_send(struct midi_port *p, const unsigned char *data, unsigned int len, unsigned int delay)
+static void _alsa_send(struct midi_port *p, const unsigned char *data, uint32_t len, uint32_t delay)
 {
 	struct alsa_midi *ex;
 	snd_seq_event_t ev;
@@ -452,18 +450,18 @@ static void _alsa_poll(struct midi_provider *_alsa_provider)
 	}
 }
 
-static struct midi_driver alsa_driver = {
-	.poll = _alsa_poll,
-	.thread = _alsa_thread,
-	.enable = _alsa_start,
-	.disable = _alsa_stop,
-	.send = _alsa_send,
-	.flags = MIDI_PORT_CAN_SCHEDULE,
-	.drain = _alsa_drain,
-};
-
 int alsa_midi_setup(void)
 {
+	static const struct midi_driver alsa_driver = {
+		.poll = _alsa_poll,
+		.thread = _alsa_thread,
+		.enable = _alsa_start,
+		.disable = _alsa_stop,
+		.send = _alsa_send,
+		.flags = MIDI_PORT_CAN_SCHEDULE,
+		.drain = _alsa_drain,
+	};
+
 	snd_seq_queue_tempo_t *tempo;
 
 	/* only bother if alsa midi actually exists, otherwise this will

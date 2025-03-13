@@ -43,8 +43,6 @@
 #include <arpa/inet.h>
 #endif
 
-#include <errno.h>
-
 #define DEFAULT_IP_PORT_COUNT   5
 #define MIDI_IP_BASE    21928
 #define MAX_DGRAM_SIZE  1280
@@ -348,8 +346,8 @@ static int _ip_stop(struct midi_port *p)
 	return 1;
 }
 
-static void _ip_send(struct midi_port *p, const unsigned char *data, unsigned int len,
-				SCHISM_UNUSED unsigned int delay)
+static void _ip_send(struct midi_port *p, const unsigned char *data, uint32_t len,
+	SCHISM_UNUSED uint32_t delay)
 {
 	struct sockaddr_in asin = {0};
 	unsigned char *ipcopy;

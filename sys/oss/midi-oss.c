@@ -40,7 +40,6 @@
 # include <sys/poll.h>
 #endif
 
-#include <errno.h>
 #include <fcntl.h>
 
 /* this is stupid; oss doesn't have a concept of ports... */
@@ -49,8 +48,8 @@
 #define MAX_MIDI_PORTS  (MAX_OSS_MIDI + 2)
 static int opened[MAX_MIDI_PORTS];
 
-static void _oss_send(struct midi_port *p, const unsigned char *data, unsigned int len,
-	SCHISM_UNUSED unsigned int delay)
+static void _oss_send(struct midi_port *p, const unsigned char *data, uint32_t len,
+	SCHISM_UNUSED uint32_t delay)
 {
 	int fd, r, n;
 	fd = opened[ n = INT_SHAPED_PTR(p->userdata) ];
@@ -162,15 +161,15 @@ static void _oss_poll(struct midi_provider *_oss_provider)
 }
 int oss_midi_setup(void)
 {
-	static struct midi_driver driver;
+	static const struct midi_driver driver = {
+		.flags = 0,
+		.poll = _oss_poll,
+		.thread = _oss_thread,
+		.enable = _oss_start_stop,
+		.disable = _oss_start_stop,
+		.send = _oss_send,
+	};
 	int i;
-
-	driver.flags = 0;
-	driver.poll = _oss_poll;
-	driver.thread = _oss_thread;
-	driver.enable = _oss_start_stop;
-	driver.disable = _oss_start_stop;
-	driver.send = _oss_send;
 
 	for (i = 0; i < MAX_MIDI_PORTS; i++) opened[i] = -1;
 	if (!midi_provider_register("OSS", &driver)) return 0;

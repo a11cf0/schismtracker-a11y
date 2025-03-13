@@ -34,9 +34,6 @@
 #include "charset.h"
 #include "keyboard.h"
 
-#include <stdarg.h>
-#include <errno.h>
-
 struct log_line {
 	int color;
 	const char *text;

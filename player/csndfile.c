@@ -23,11 +23,6 @@
 
 #include "headers.h"
 
-#include <math.h>
-#include <stdint.h>
-#include <assert.h>
-#include <time.h>
-
 #include "bswap.h"
 #include "bshift.h"
 #include "player/sndfile.h"
@@ -580,9 +575,6 @@ uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags, ui
 	uint32_t pos, len = sample->length;
 	if(maxlengthmask != UINT32_MAX)
 		len = len > maxlengthmask ? maxlengthmask : (len & maxlengthmask);
-
-	if (sample->flags & CHN_16BIT)
-		len *= 2;
 
 	// validate the write flags, and set up the save params
 	switch (flags & SF_CHN_MASK) {

@@ -22,6 +22,7 @@
  */
 
 #include "headers.h"
+
 #include "charset.h"
 #include "it.h"
 #include "page.h"
@@ -29,8 +30,6 @@
 #include "vgamem.h"
 #include "accessibility.h"
 #include "str.h"
-
-#include <math.h>
 
 /* --------------------------------------------------------------------- */
 /* create_* functions (the constructors, if you will) */

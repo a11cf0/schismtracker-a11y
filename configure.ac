@@ -179,8 +179,13 @@ dnl ------------------------------------------------------------------------
 
 dnl Check for standard programs
 AC_PROG_CC
+
+dnl DEPRECATED in 2.70 - re-added so old autoconf versions don't screw up and
+dnl neglect to put the compiler in C99 mode
+AC_PROG_CC_C99
+
 if test "x$ac_cv_prog_cc_c11" = "xno" && test "x$ac_cv_prog_cc_c99" = "xno"; then
-	AC_MSG_WARN([*** Failed to find a proper C99 compiler])
+	AC_MSG_WARN([*** Failed to find a proper C99/C11 compiler])
 fi
 AM_PROG_CC_C_O
 AC_PROG_CPP
@@ -266,7 +271,7 @@ AM_CONDITIONAL([NEED_UNSETENV], [test "x$ac_cv_func_unsetenv" = "xno"])
 AM_CONDITIONAL([NEED_GETOPT], [test "x$ac_cv_func_getopt_long" = "xno"])
 
 dnl Headers, typedef crap, et al.
-AC_CHECK_HEADERS(alloca.h sys/time.h dirent.h limits.h signal.h unistd.h sys/param.h sys/ioctl.h sys/socket.h sys/soundcard.h poll.h sys/poll.h linux/fb.h sys/kd.h stdint.h inttypes.h)
+AC_CHECK_HEADERS(assert.h alloca.h dirent.h limits.h signal.h unistd.h sys/param.h sys/ioctl.h sys/socket.h sys/soundcard.h poll.h sys/poll.h linux/fb.h sys/kd.h stdint.h inttypes.h tgmath.h)
 
 AM_CONDITIONAL([USE_OSS], [false])
 if test "x$ac_cv_header_sys_soundcard_h" = "xyes"; then
@@ -571,6 +576,15 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([[void s(unsigned int x) { char y[x]; }]])],
 AC_MSG_RESULT($have_c99_vlas)
 if test "x$have_c99_vlas" = "xyes"; then
 	AC_DEFINE([HAVE_C99_VLAS], [1], [C99-style VLA support])
+fi
+
+AC_MSG_CHECKING([for C99 flexible array member support])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[struct flex { int a; int b[]; }; ]])],
+	[have_c99_fams=yes],
+	[have_c99_fams=no])
+AC_MSG_RESULT($have_c99_fams)
+if test "x$have_c99_fams" = "xyes"; then
+	AC_DEFINE([HAVE_C99_FAMS], [1], [C99-style flexible array member support])
 fi
 
 dnl --------------------------------------------------------------------------
