@@ -372,7 +372,6 @@ static const char* audio_driver_list_a11y_get_value(char *buf)
 }
 
 static void audio_driver_list_draw(void) {
->>>>>>> 9e830f83f0ef45da07c5a63adb27916b4a923a28
 	int interp_modes;
 	for (interp_modes = 0; interpolation_modes[interp_modes]; interp_modes++);
 
