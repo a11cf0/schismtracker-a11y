@@ -213,6 +213,23 @@
 
 // Ok, now after all that mess, we can define these attributes:
 
+/* Used to designate a fallthrough case in a switch statement, such as:
+ *
+ * switch (whatever) {
+ * case 0: ...; SCHISM_FALLTHROUGH;
+ * default: ...; break;
+ * }
+ */
+#if SCHISM_HAS_C23_ATTRIBUTE(fallthrough)
+# define SCHISM_FALLTHROUGH [[fallthrough]]
+#elif SCHISM_GNUC_HAS_ATTRIBUTE(__fallthrough__, 7, 0, 0)
+# define SCHISM_FALLTHROUGH __attribute__((__fallthrough__))
+#elif SCHISM_MSVC_ATLEAST(16, 5, 0)
+# define SCHISM_FALLTHROUGH __fallthrough
+#else
+# define SCHISM_FALLTHROUGH
+#endif
+
 /* This is used for variables or parameters that are
  * known to be unused. */
 #if SCHISM_HAS_C23_ATTRIBUTE(maybe_unused)
@@ -347,7 +364,7 @@
  * with branch prediction on newer processors. */
 #if SCHISM_GNUC_HAS_BUILTIN(__builtin_expect, 3, 0, 0)
 # define SCHISM_LIKELY(x)   __builtin_expect(!!(x), 1)
-# define SCHISM_UNLIKELY(x) __builtin_expect(!(x),  1)
+# define SCHISM_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
 # define SCHISM_LIKELY(x)   (x)
 # define SCHISM_UNLIKELY(x) (x)
@@ -456,7 +473,7 @@ extern int ya_optind, ya_opterr, ya_optopt;
  * https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation */
 # define SCHISM_PATH_MAX ((3 + 256 + 1) * 4) // drive letter, colon, name components, NUL, multiplied by 4 for UTF-8
 #elif defined(SCHISM_MACOS)
-# define SCHISM_PATH_MAX (255 + 1) // 255 bytes in Pascal-string + NUL terminator (encoding conversions do not happen here yet)
+# define SCHISM_PATH_MAX ((255 + 1) * 4) // 255 bytes in Pascal-string + NUL terminator times 4 for UTF-8
 #else
 # define SCHISM_PATH_MAX (8192) // 8 KiB (should be more than enough)
 #endif

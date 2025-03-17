@@ -1055,7 +1055,7 @@ static int _handle_ime(struct key_event *k)
 			}
 		} else if (k->sym == SCHISM_KEYSYM_LSHIFT || k->sym == SCHISM_KEYSYM_RSHIFT) {
 			/* do nothing */
-		} else if (!NO_MODIFIER((k->mod&~SCHISM_KEYMOD_SHIFT)) || (c=(k->text) ? *k->text : k->sym) == 0 || digraph_n < 2) {
+		} else if (!NO_MODIFIER((k->mod&~SCHISM_KEYMOD_SHIFT)) || (c=(k->text) ? ((uint8_t)*k->text) : k->sym) == 0 || digraph_n < 2) {
 			if (k->state == KEY_PRESS && k->mouse == MOUSE_NONE) {
 				if (digraph_n > 0) status_text_flash(" ");
 				digraph_n = -1;
@@ -1671,6 +1671,8 @@ static void _set_from_f3(void)
 	case PAGE_ORDERLIST_PANNING:
 	case PAGE_ORDERLIST_VOLUMES:
 		if (status.flags & CLASSIC_MODE) return;
+		// XXX is this correct?
+		SCHISM_FALLTHROUGH;
 	case PAGE_SAMPLE_LIST:
 		if (song_is_instrument_mode())
 			instrument_synchronize_to_sample();

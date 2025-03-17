@@ -201,14 +201,13 @@ static const char* audio_device_list_a11y_get_value(char *buf)
 	return buf;
 }
 
-static void audio_device_list_draw() {
+static void audio_device_list_draw(void) {
 	int interp_modes;
 
 	for (interp_modes = 0; interpolation_modes[interp_modes]; interp_modes++);
 
 	int n, o = 0, focused = (ACTIVE_PAGE.selected_widget == 13 + interp_modes);
 	int fg, bg;
-	const char* current_audio_device = song_audio_device();
 
 	draw_fill_chars(AUDIO_DEVICE_BOX_X, AUDIO_DEVICE_BOX_Y, AUDIO_DEVICE_BOX_END_X, AUDIO_DEVICE_BOX_END_Y, DEFAULT_FG, 0);
 
@@ -236,7 +235,7 @@ static void audio_device_list_draw() {
 	if (top_audio_device < 1)
 		DRAW_DEVICE(AUDIO_BACKEND_DEFAULT, "default");
 
-	for (n = MAX(0, top_audio_device - 1); n < audio_device_list_size && o < AUDIO_DEVICE_BOX_HEIGHT; n++)
+	for (n = MAX(0, top_audio_device - 1); (size_t)n < audio_device_list_size && o < AUDIO_DEVICE_BOX_HEIGHT; n++)
 		DRAW_DEVICE(audio_device_list[n].id, audio_device_list[n].name);
 
 #undef DRAW_DEVICE
@@ -287,7 +286,7 @@ static int audio_device_list_handle_key_on_list(struct key_event * k)
 	case SCHISM_KEYSYM_DOWN:
 		if (!NO_MODIFIER(k->mod))
 			return 0;
-		if (++new_device >= audio_device_list_size + 1) {
+		if (++new_device >= (int)audio_device_list_size + 1) {
 			//widget_change_focus_to(49);
 			return 1;
 		}
@@ -338,7 +337,7 @@ static int audio_device_list_handle_key_on_list(struct key_event * k)
 			return 0;
 	}
 
-	new_device = CLAMP(new_device, 0, audio_device_list_size);
+	new_device = CLAMP(new_device, 0, (int)audio_device_list_size);
 
 	if (new_device != selected_audio_device) {
 		selected_audio_device = new_device;
@@ -372,7 +371,8 @@ static const char* audio_driver_list_a11y_get_value(char *buf)
 	return buf;
 }
 
-static void audio_driver_list_draw() {
+static void audio_driver_list_draw(void) {
+>>>>>>> 9e830f83f0ef45da07c5a63adb27916b4a923a28
 	int interp_modes;
 	for (interp_modes = 0; interpolation_modes[interp_modes]; interp_modes++);
 

@@ -24,7 +24,6 @@
 #ifndef SCHISM_DMOZ_H_
 #define SCHISM_DMOZ_H_
 
-#include <stdint.h>
 #include "player/sndfile.h" /* for song_sample_t */
 
 /* need these for struct stat */
@@ -237,7 +236,7 @@ void dmoz_cache_update(const char *path, dmoz_filelist_t *fl, dmoz_dirlist_t *dl
 void dmoz_cache_lookup(const char *path, dmoz_filelist_t *fl, dmoz_dirlist_t *dl);
 
 #ifdef SCHISM_MACOS
-/* this sucks */
+/* This ought to be in osdefs.h. whatever */
 int dmoz_path_from_fsspec(const void *spec, char **path);
 int dmoz_path_to_fsspec(const char *path, void *spec);
 #endif

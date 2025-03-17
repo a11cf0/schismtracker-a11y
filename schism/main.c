@@ -384,12 +384,9 @@ SCHISM_NORETURN static void event_loop(void)
 	schism_keysym_t last_key = 0;
 	time_t startdown;
 	int downtrip;
-	int wheel_x;
-	int wheel_y;
 	int fix_numlock_key;
 	int screensaver;
 	int button = -1;
-	int i;
 	struct key_event kk;
 
 	fix_numlock_key = status.fix_numlock_setting;
@@ -464,7 +461,7 @@ SCHISM_NORETURN static void event_loop(void)
 					kk.is_repeat = 1;
 				}
 
-				/* fallthrough */
+				SCHISM_FALLTHROUGH;
 			case SCHISM_KEYUP:
 				switch (se.key.sym) {
 				case SCHISM_KEYSYM_NUMLOCKCLEAR:
@@ -646,7 +643,7 @@ SCHISM_NORETURN static void event_loop(void)
 			case SCHISM_WINDOWEVENT_RESIZED:
 			case SCHISM_WINDOWEVENT_SIZE_CHANGED: /* tiling window managers */
 				video_resize(se.window.data.resized.width, se.window.data.resized.height);
-				/* fallthrough */
+				SCHISM_FALLTHROUGH;
 			case SCHISM_WINDOWEVENT_EXPOSED:
 				status.flags |= (NEED_UPDATE);
 				break;
@@ -840,7 +837,7 @@ SCHISM_NORETURN static void event_loop(void)
 	schism_exit(0);
 }
 
-void schism_exit(int status)
+void schism_exit(int x)
 {
 #if ENABLE_HOOKS
 	if (shutdown_process & EXIT_HOOK)
@@ -890,7 +887,7 @@ void schism_exit(int status)
 
 	os_sysexit();
 
-	exit(status);
+	exit(x);
 }
 
 extern void vis_init(void);
@@ -908,7 +905,19 @@ int schism_main(int argc, char** argv)
 	srand(time(NULL));
 	parse_options(argc, argv); /* shouldn't this be like, first? */
 
+	/* Eh. */
+	log_append2(0, 3, 0, schism_banner(0));
+	log_nl();
+
+#ifndef SCHISM_MACOS /* done in macos_sysinit */
+	if (!dmoz_init()) {
+		log_appendf(4, "Failed to initialize a filesystem backend!");
+		log_appendf(4, "Portable mode will not work properly!");
+		log_nl();
+	}
+
 	cfg_init_dir();
+#endif
 
 #if ENABLE_HOOKS
 	if (startup_flags & SF_HOOKS) {
@@ -916,16 +925,6 @@ int schism_main(int argc, char** argv)
 		shutdown_process |= EXIT_HOOK;
 	}
 #endif
-
-	/* Eh. */
-	log_append2(0, 3, 0, schism_banner(0));
-	log_nl();
-
-	if (!dmoz_init()) {
-		log_nl();
-		log_appendf(4, "Failed to initialize a filesystem backend!");
-		log_appendf(4, "Portable mode will not work properly!");
-	}
 
 	if (!mt_init()) {
 		os_show_message_box("Critical error!", "Failed to initialize a multithreading backend!");
@@ -948,9 +947,9 @@ int schism_main(int argc, char** argv)
 	cfg_load();
 
 	if (!clippy_init()) {
-		log_nl();
 		log_appendf(4, "Failed to initialize a clipboard backend!");
 		log_appendf(4, "Copying to the system clipboard will not work properly!");
+		log_nl();
 	}
 
 	if (did_classic) {

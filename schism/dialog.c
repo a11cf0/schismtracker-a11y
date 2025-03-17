@@ -228,7 +228,8 @@ int dialog_handle_key(struct key_event * k)
 				if (!(status.flags & CLASSIC_MODE)) {
 					dialog_no(d->data);
 					return 1;
-				} /* else fall through */
+				}
+				SCHISM_FALLTHROUGH;
 			case DIALOG_OK_CANCEL:
 				dialog_cancel(d->data);
 				return 1;
@@ -243,7 +244,8 @@ int dialog_handle_key(struct key_event * k)
 				break;
 			default:
 				return 0;
-			} /* and fall through */
+			}
+			SCHISM_FALLTHROUGH;
 		case SCHISM_KEYSYM_ESCAPE:
 			dialog_cancel(d->data);
 			return 1;
@@ -254,7 +256,8 @@ int dialog_handle_key(struct key_event * k)
 				break;
 			default:
 				return 0;
-			} /* and fall through */
+			}
+			SCHISM_FALLTHROUGH;
 		case SCHISM_KEYSYM_RETURN:
 			dialog_yes(d->data);
 			return 1;

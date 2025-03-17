@@ -209,7 +209,7 @@ void fft_get_columns(uint32_t width, unsigned char *out, uint32_t chan)
 			break; // NOW JUST WHO SAY THEY AINT GOT MANY BLOOD?
 
 		/* mmm... this got ugly */
-		if ((fftlog_i + 1 >= FFT_BANDS_SIZE) && (ax + 1 > fftlog[fftlog_i + 1])) {
+		if ((fftlog_i + 1 >= FFT_BANDS_SIZE) || (ax + 1 > fftlog[fftlog_i + 1])) {
 			a = ax;
 			j = _fft_get_value(chan, a);
 		} else {
@@ -286,11 +286,11 @@ static void _vis_process(void)
 	status.flags |= NEED_UPDATE;
 }
 
-#define VIS_WORK_EX(SUFFIX, BITS, NCHANS, INLOOP) \
+#define VIS_WORK_EX(SUFFIX, BITS, INLOOP) \
 	void vis_work_##BITS##SUFFIX(const int##BITS##_t *in, int inlen) \
 	{ \
 		int16_t dl[FFT_BUFFER_SIZE], dr[FFT_BUFFER_SIZE]; \
-		int i, j, k, c; \
+		int i, j, k; \
 	\
 		if (!inlen) { \
 			memset(current_fft_data[0], 0, FFT_OUTPUT_SIZE*2); \
@@ -309,12 +309,12 @@ static void _vis_process(void)
 	}
 
 #define VIS_WORK(BITS) \
-	VIS_WORK_EX(s, BITS, 2, { \
+	VIS_WORK_EX(s, BITS, { \
 		dl[i] = rshift_signed(lshift_signed((int32_t)in[j], 32 - BITS), 16); j++; \
 		dr[i] = rshift_signed(lshift_signed((int32_t)in[j], 32 - BITS), 16); j++; \
 	}) \
 	\
-	VIS_WORK_EX(m, BITS, 1, { \
+	VIS_WORK_EX(m, BITS, { \
 		dl[i] = dr[i] = rshift_signed(lshift_signed((int32_t)in[j], 32 - BITS), 16); j++; \
 	})
 

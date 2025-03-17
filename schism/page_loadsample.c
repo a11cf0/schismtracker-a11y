@@ -501,6 +501,7 @@ static int stereo_cvt_hk(struct key_event *k)
 	switch (k->sym) {
 	case SCHISM_KEYSYM_RETURN:
 		printf("why am I here\n");
+		SCHISM_FALLTHROUGH;
 	case SCHISM_KEYSYM_ESCAPE: case SCHISM_KEYSYM_o: case SCHISM_KEYSYM_c:
 		return 1;
 	case SCHISM_KEYSYM_l:
@@ -608,7 +609,7 @@ static void handle_enter_key(void)
 			strncpy(smp->filename, ptr, ARRAY_SIZE(smp->filename));
 			free(ptr);
 		}
-		smp->filename[12] = 0;
+		smp->filename[ARRAY_SIZE(smp->filename) - 1] = 0;
 		finish_load(cur);
 		memused_songchanged();
 	} else if (file->type & TYPE_SAMPLE_MASK) {
@@ -674,7 +675,7 @@ static int file_list_handle_text_input(const char *text)
 	for (; *text; text++) {
 		if (*text >= 32 && (search_pos > -1 || (f && (f->type & TYPE_DIRECTORY)))) {
 			if (search_pos < 0) search_pos = 0;
-			if (search_pos + 1 < ARRAY_SIZE(search_str)) {
+			if (search_pos + 1 < (int)ARRAY_SIZE(search_str)) {
 				search_str[search_pos++] = *text;
 				reposition_at_slash_search();
 				char buf[256];
@@ -759,6 +760,7 @@ static int file_list_handle_key(struct key_event * k)
 			reposition_at_slash_search();
 			return 1;
 		}
+		SCHISM_FALLTHROUGH;
 	case SCHISM_KEYSYM_SLASH:
 		if (search_pos < 0) {
 			if (k->state == KEY_PRESS)
@@ -768,7 +770,8 @@ static int file_list_handle_key(struct key_event * k)
 			a11y_output(buf, 0);
 			status.flags |= NEED_UPDATE;
 			return 1;
-		} /* else fall through */
+		}
+		SCHISM_FALLTHROUGH;
 	default:
 		if (k->text)
 			file_list_handle_text_input(k->text);
